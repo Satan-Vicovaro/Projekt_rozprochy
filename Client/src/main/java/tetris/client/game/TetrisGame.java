@@ -1,22 +1,32 @@
 package tetris.client.game;
 
+import tetris.client.ui.UiManager;
+
 public class TetrisGame {
     Tile[][] board;
     int sizeX;
     int sizeY;
 
-    public TetrisGame(int sizeX, int sizeY) {
+    UiManager manager;
+
+    public TetrisGame(int sizeX, int sizeY, UiManager manager) {
         this.sizeX = sizeX;
         this.sizeY = sizeY;
         board = new Tile[sizeY][sizeX];
-        for (int y = 0; y<sizeY; y++) {
+    for (int y = 0; y<sizeY; y++) {
             for (int x = 0; x < sizeX; x++) {
                 board[y][x] = new Tile(new Vector2d(x, y));
             }
         }
+        this.manager = manager;
     }
 
-    public void game() {
+    public void start() {
+        manager.init();
+        addRandomTetromino(new Vector2d(1,1));
+        manager.updateBoard(board);
+        printBoard();
+        manager.run();
 
     }
 
