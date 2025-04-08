@@ -1,4 +1,4 @@
-package com.example.client_java;
+package tetris.client;
 
 import javafx.fxml.FXML;
 import javafx.scene.control.Label;
