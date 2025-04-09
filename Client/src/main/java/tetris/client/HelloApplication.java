@@ -20,6 +20,7 @@ public class HelloApplication extends Application {
         UiManager manager = new UiManager(root, stage, fxmlLoader,10,20);
         TetrisGame game = new TetrisGame(10,20,manager);
 
+        game.init();
         game.start();
     }
 

@@ -5,6 +5,8 @@ import java.util.Iterator;
 public class Tetromino implements Iterable<Vector2d>{
     Vector2d[] tiles;
     Vector2d centralPosition;
+    float sizeX; // for border check
+    float sizeY;
 
     public Tetromino() {
         centralPosition = new Vector2d(0, 0);
@@ -85,6 +87,26 @@ public class Tetromino implements Iterable<Vector2d>{
         return tiles;
     }
 
+    public void shiftBy(Vector2d vector2d) {
+        this.centralPosition.x += vector2d.x;
+        this.centralPosition.y += vector2d.y;
+    }
+    public void rotateLeft() {
+        for (Vector2d piece:tiles) {
+            float x = piece.x;
+            float y = piece.y;
+            piece.y =-x;
+            piece.x = y;
+        }
+    }
+    public void rotateRight() {
+        for (Vector2d piece:tiles) {
+            float x = piece.x;
+            float y = piece.y;
+            piece.y = x;
+            piece.x =-y;
+        }
+    }
 
     @Override
     public Iterator<Vector2d> iterator() {
