@@ -1,8 +1,11 @@
 package tetris.client;
 
+import javafx.beans.value.ChangeListener;
 import javafx.fxml.FXML;
 import javafx.scene.control.Label;
+import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.GridPane;
+import javafx.scene.layout.StackPane;
 
 public class HelloController {
     @FXML
@@ -12,12 +15,21 @@ public class HelloController {
     private GridPane mainGrid;
 
     @FXML
-    public void initialize(){
+    private StackPane rootStack;
+
+    @FXML
+    private AnchorPane scalableGroup;
+
+    @FXML
+    public void initialize() {
 
     }
 
     public GridPane getMainGrid() {
         return mainGrid;
+    }
+    public AnchorPane getScalableGroup() {
+        return scalableGroup;
     }
 
     @FXML

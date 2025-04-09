@@ -7,10 +7,11 @@
 <?import javafx.scene.layout.GridPane?>
 <?import javafx.scene.layout.RowConstraints?>
 
-
 <AnchorPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="700.0" prefWidth="1400.0" xmlns="http://javafx.com/javafx/22" xmlns:fx="http://javafx.com/fxml/1" fx:controller="tetris.client.HelloController">
    <children>
-      <AnchorPane layoutX="450.0" layoutY="50.0" prefHeight="600.0" prefWidth="400.0">
+      <Label fx:id="welcomeText" layoutX="226.0" layoutY="42.0" prefHeight="0.0" prefWidth="80.0" />
+      <Button layoutX="220.0" layoutY="465.0" onAction="#onHelloButtonClick" text="Hello!" />
+      <AnchorPane fx:id="scalableGroup" layoutX="549.0" layoutY="25.0" prefHeight="650.0" prefWidth="310.0">
          <children>
             <GridPane fx:id="mainGrid" gridLinesVisible="true" prefHeight="600.0" prefWidth="400.0" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
               <columnConstraints>
@@ -50,7 +51,5 @@
             </GridPane>
          </children>
       </AnchorPane>
-      <Label fx:id="welcomeText" layoutX="226.0" layoutY="42.0" prefHeight="0.0" prefWidth="80.0" />
-      <Button layoutX="220.0" layoutY="465.0" onAction="#onHelloButtonClick" text="Hello!" />
    </children>
 </AnchorPane>

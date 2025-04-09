@@ -1,10 +1,13 @@
 package tetris.client.ui;
 
+import javafx.beans.value.ChangeListener;
 import javafx.fxml.FXMLLoader;
+import javafx.geometry.Bounds;
 import javafx.scene.Scene;
 import javafx.scene.control.Label;
 import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.GridPane;
+import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
 import javafx.stage.Stage;
 import tetris.client.HelloController;
@@ -16,19 +19,22 @@ public class UiManager {
     Stage stage;
     Label label;
     GridPane mainBoard;
+    AnchorPane scalableGroup;
+    Rectangle[][] rectArr;
     int sizeY;
     int sizeX;
+
     public UiManager(AnchorPane root, Stage stage, FXMLLoader fxmlLoader, int sizeX, int sizeY) {
         this.root = root;
         this.stage = stage;
 
         HelloController controller = fxmlLoader.getController();
         this.label = controller.getWelcomeText();
-
         this.mainBoard = controller.getMainGrid();
-
+        this.scalableGroup = controller.getScalableGroup();
         this.sizeX = sizeX;
         this.sizeY = sizeY;
+        rectArr = new Rectangle[sizeY][sizeX];
     }
 
     public void init() {
@@ -36,24 +42,41 @@ public class UiManager {
         stage.setTitle("Hello!");
         stage.setScene(scene);
         stage.show();
+
+        double rectSize = mainBoard.getWidth()/mainBoard.getColumnCount() * 0.95;
+        for (int y = 0; y<sizeY; y++) {
+            for (int x = 0; x < sizeX; x++) {
+                Rectangle rect = new Rectangle(rectSize,rectSize, Color.RED);
+                rectArr[y][x] = rect;
+                mainBoard.add(rect,x,y);
+            }
+        }
+
+        double originalWidth = 1400;
+        double originalHeight = 700;
+
+        ChangeListener<Number> scaleListener = (obs, oldVal, newVal) -> {
+            double scaleX = root.getWidth() / originalWidth;
+            double scaleY = root.getHeight() / originalHeight;
+            double scale = Math.min(scaleX, scaleY); // maintain aspect ratio
+
+            scalableGroup.setScaleX(scale);
+            scalableGroup.setScaleY(scale);
+        };
+
+        root.widthProperty().addListener(scaleListener);
+        root.heightProperty().addListener(scaleListener);
     }
 
     public void run() {
         label.setText("meow meow meow");
-        //Rectangle square = new Rectangle(49,50);
-       // mainBoard.add(new Rectangle(49,50),4,5);
-        //mainBoard.add(new Rectangle(49,50),5,5);
     }
 
     public void updateBoard(Tile[][] board) {
-        double rectSize = mainBoard.getWidth()/mainBoard.getColumnCount();
-
-
         for (int y = 0; y<sizeY; y++) {
             for (int x = 0; x < sizeX; x++) {
                 if(board[y][x].color != ' ') {
-                    mainBoard.add(new Rectangle(rectSize,rectSize),x,y);
-                    break;
+                    rectArr[y][x].setFill(Color.BLUE);
                 }
             }
         }

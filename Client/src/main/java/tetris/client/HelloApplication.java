@@ -21,9 +21,7 @@ public class HelloApplication extends Application {
         TetrisGame game = new TetrisGame(10,20,manager);
 
         game.start();
-
     }
-
 
     public static void main(String[] args) {
         launch();
