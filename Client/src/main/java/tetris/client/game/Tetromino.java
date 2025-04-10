@@ -2,26 +2,35 @@ package tetris.client.game;
 
 import java.util.Iterator;
 
+import static java.lang.Math.*;
+
 public class Tetromino implements Iterable<Vector2d>{
     Vector2d[] tiles;
     Vector2d centralPosition;
     float sizeX; // for border check
     float sizeY;
+    TetrominoType type;
 
-    public Tetromino() {
+    Vector2d velocity = new Vector2d(0,0);
+
+    public Tetromino(float sizeX,float sizeY) {
         centralPosition = new Vector2d(0, 0);
         TetrominoType type = TetrominoType.getRandom();
         this.tiles = getType(type);
     }
 
-    public Tetromino(Vector2d point) {
+    public Tetromino(Vector2d point, float sizeX,float sizeY) {
         centralPosition = new Vector2d(point);
         TetrominoType type = TetrominoType.getRandom();
         this.tiles = getType(type);
+        this.sizeX = sizeX;
+        this.sizeY = sizeY;
     }
-    public Tetromino(Vector2d point, TetrominoType type) {
+    public Tetromino(Vector2d point, TetrominoType type, float sizeX,float sizeY) {
         centralPosition = point;
         this.tiles = getType(type);
+        this.sizeX = sizeX;
+        this.sizeY = sizeY;
     }
 
     private Vector2d[] getType(TetrominoType type) {
@@ -29,10 +38,10 @@ public class Tetromino implements Iterable<Vector2d>{
         switch (type) {
             case TYPE_I -> {
                 tiles = new Vector2d[]{
+                        new Vector2d(-1, 0),
                         new Vector2d(0, 0),
                         new Vector2d(1, 0),
-                        new Vector2d(2, 0),
-                        new Vector2d(3, 0)
+                        new Vector2d(2, 0)
                 };
             }
             case TYPE_O -> {
@@ -46,25 +55,25 @@ public class Tetromino implements Iterable<Vector2d>{
             case TYPE_T -> {
                 tiles = new Vector2d[]{
                         new Vector2d(0, 0),
+                        new Vector2d(-1, 0),
                         new Vector2d(1, 0),
-                        new Vector2d(2, 0),
-                        new Vector2d(1, 1)
+                        new Vector2d(0, 1)
                 };
             }
             case TYPE_J -> {
                 tiles = new Vector2d[]{
-                        new Vector2d(0, 1),
-                        new Vector2d(1, 1),
-                        new Vector2d(2, 1),
-                        new Vector2d(0, 2)
+                        new Vector2d(0, 0),
+                        new Vector2d(-1, 0),
+                        new Vector2d(1, 0),
+                        new Vector2d(1, 1)
                 };
             }
             case TYPE_L -> {
                 tiles = new Vector2d[]{
                         new Vector2d(0, 0),
-                        new Vector2d(0, 1),
-                        new Vector2d(0, 2),
-                        new Vector2d(1, 2)
+                        new Vector2d(-1, 0),
+                        new Vector2d(1, 0),
+                        new Vector2d(-1, 1)
                 };
             }
             case TYPE_S -> {
@@ -78,12 +87,13 @@ public class Tetromino implements Iterable<Vector2d>{
             case TYPE_Z -> {
                 tiles = new Vector2d[]{
                         new Vector2d(0, 0),
-                        new Vector2d(1, 0),
-                        new Vector2d(1, 1),
-                        new Vector2d(2, 1)
+                        new Vector2d(-1, 0),
+                        new Vector2d(0, 1),
+                        new Vector2d(1, 1)
                 };
             }
         }
+        this.type = type;
         return tiles;
     }
 
@@ -92,6 +102,9 @@ public class Tetromino implements Iterable<Vector2d>{
         this.centralPosition.y += vector2d.y;
     }
     public void rotateLeft() {
+        if (type==TetrominoType.TYPE_O) {
+            return;
+        }
         for (Vector2d piece:tiles) {
             float x = piece.x;
             float y = piece.y;
@@ -100,6 +113,9 @@ public class Tetromino implements Iterable<Vector2d>{
         }
     }
     public void rotateRight() {
+        if (type==TetrominoType.TYPE_O) {
+            return;
+        }
         for (Vector2d piece:tiles) {
             float x = piece.x;
             float y = piece.y;
@@ -107,7 +123,50 @@ public class Tetromino implements Iterable<Vector2d>{
             piece.x =-y;
         }
     }
+    private boolean isPointValid(Vector2d point, Vector2d correction) {
+        if(point.x < 0 ) {
+            correction.x = abs(point.x);
+            return false;
+        }
+        if(point.x >= this.sizeX) {
+            correction.x = this.sizeX - point.x - 1;
+            return false;
+        }
 
+        if(point.y < 0 ) {
+            correction.y = abs(point.y);
+            return false;
+        }
+        if(point.y >= this.sizeY) {
+            correction.y = this.sizeY - point.y - 1;
+            return false;
+        }
+        return true;
+    }
+
+    // if move is invalid, we shift it until it becomes valid
+    public void makeMoveValid() {
+        Vector2d shift = new Vector2d(0,0);
+        Vector2d possibleCorrection = new Vector2d(0,0);
+        for (Vector2d tetrominoTile : this) { // iterate over ourselves
+            if (!isPointValid(tetrominoTile,possibleCorrection)) {
+                if (possibleCorrection.x < 0 || possibleCorrection.y < 0) {
+                    shift.shiftyBy(new Vector2d(min(shift.x,possibleCorrection.x),min(shift.y, possibleCorrection.y)));
+                }else {
+                    shift.shiftyBy(new Vector2d(max(shift.x,possibleCorrection.x),max(shift.y, possibleCorrection.y)));
+                }
+            }
+        }
+        this.centralPosition.shiftyBy(possibleCorrection);
+    }
+
+    public void applyGravity(double deltaTime) {
+        centralPosition.y += (float) (velocity.y * deltaTime);
+        centralPosition.x += (float) (velocity.x * deltaTime);
+    }
+    public void setVelocity(Vector2d velocity) {
+        this.velocity = velocity;
+    }
     @Override
     public Iterator<Vector2d> iterator() {
         return new TerminoIterator();

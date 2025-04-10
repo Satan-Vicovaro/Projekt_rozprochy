@@ -25,16 +25,16 @@ public class GameBoard {
     }
 
     public void addRandomTetromino() {
-        Tetromino shape = new Tetromino();
+        Tetromino shape = new Tetromino(sizeX,sizeY);
         addToBoard(shape);
     }
 
     public void addRandomTetromino(Vector2d point) {
-        Tetromino shape = new Tetromino(point);
+        Tetromino shape = new Tetromino(point, sizeX, sizeY);
         addToBoard(shape);
     }
     public void addTetromino(Vector2d point, TetrominoType type) {
-        Tetromino shape = new Tetromino(point,type);
+        Tetromino shape = new Tetromino(point,type,sizeX,sizeY);
         addToBoard(shape);
     }
 

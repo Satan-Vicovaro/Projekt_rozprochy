@@ -3,6 +3,8 @@ package tetris.client.game;
 import javafx.animation.AnimationTimer;
 import tetris.client.ui.UiManager;
 
+import java.util.Objects;
+
 public class TetrisGame {
     GameBoard board;
     int sizeX;
@@ -14,22 +16,26 @@ public class TetrisGame {
         // Move piece down, check collision, update score, etc.
         boolean gameOver = false;
         Tetromino currentShape = null;
-        @Override
-        public void handle(long now) {
+        long lastUpdate = 0;
+
+        public void updateGame(double deltaTime) {
             // get random Tetromino if currently no one is used by player
             if (currentShape == null) {
-                currentShape = new Tetromino(new Vector2d((float)(sizeX/2), 0));
+                currentShape = new Tetromino(new Vector2d((float)(sizeX/2), 0),sizeX,sizeY);
+                currentShape.setVelocity(new Vector2d(0,4F));
             }
+
             // Player keyboard input
             char input =  manager.getUserInput();
 
+            // if player moved a piece
             if (input != 0) {
                 if (input =='A') {
                     // move left
-                    currentShape.shiftBy(new Vector2d(-1,0));
+                    currentShape.shiftBy(Vector2d.ones(Direction.LEFT));;
                 } else if (input =='D') {
                     // move right
-                    currentShape.shiftBy(new Vector2d(1,0));
+                    currentShape.shiftBy(Vector2d.ones(Direction.RIGHT));
                 }else if (input == 'W') {
                     currentShape.shiftBy(new Vector2d(0,-1));
                 }else if (input == 'S') {
@@ -40,12 +46,27 @@ public class TetrisGame {
                     currentShape.rotateRight();
                 }
             }
+            currentShape.applyGravity(deltaTime);
+            currentShape.makeMoveValid();
             board.addToBoard(currentShape);
             manager.updateBoard(board.getTiles());
+            // send message to other players;
+            //
+            // wait for server answer
             board.removeFromBoard(currentShape);
             if (gameOver) {
                 return;
             }
+        }
+
+        @Override
+        public void handle(long now) {
+
+            if (lastUpdate > 0) {
+                double deltaTime = (now - lastUpdate) / 1_000_000_000.0; // seconds
+                updateGame(deltaTime);
+            }
+            lastUpdate = now;
         }
     };
 
@@ -58,10 +79,6 @@ public class TetrisGame {
 
     public void init() {
         manager.init();
-        //board.addRandomTetromino();
-        //board.addTetromino(new Vector2d(5,6),TetrominoType.TYPE_S);
-        //board.addTetromino(new Vector2d(5,10),TetrominoType.TYPE_Z);
-        //board.addTetromino(new Vector2d(5,15),TetrominoType.TYPE_J);
         manager.updateBoard(board.getTiles());
         manager.run();
     }
