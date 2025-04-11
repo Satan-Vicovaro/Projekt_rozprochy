@@ -23,10 +23,10 @@ public class Vector2d {
     public static Vector2d ones(Direction direction) {
         switch (direction){
             case UP -> {
-                return new Vector2d(0,1);
+                return new Vector2d(0,-1);
             }
             case DOWN -> {
-                return new Vector2d(0,-1);
+                return new Vector2d(0,1);
             }
             case LEFT -> {
                 return new Vector2d(-1,0);

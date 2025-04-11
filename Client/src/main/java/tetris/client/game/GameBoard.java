@@ -1,5 +1,10 @@
 package tetris.client.game;
 
+import java.util.Iterator;
+import java.util.Random;
+
+import static java.lang.Math.abs;
+
 public class GameBoard {
 
     Tile[][] board;
@@ -13,6 +18,8 @@ public class GameBoard {
                 board[y][x] = new Tile(new Vector2d(x, y));
             }
         }
+        this.sizeX = sizeX;
+        this.sizeY = sizeY;
     }
 
     public void printBoard() {
@@ -53,4 +60,116 @@ public class GameBoard {
         }
     }
 
+    // if there is end of track or collision with blocks below we set Shape position
+    public boolean checkPlaceShape(Tetromino shape) {
+        Vector2d[] lowestPoints = shape.getLowestPoints();
+
+        for (Vector2d point: lowestPoints) {
+            if (point.y > sizeY - 1) {
+                return true; //set shape on the bottom of board
+            }
+            Tile pointBelow = board[(int)(point.y + 1)][(int)point.x];
+            if (pointBelow.color != ' ') {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public int clearFullLines() { // number of lines Cleared after placing shape
+        Iterator<Tile[]> iterator = this.rowIterator();
+        int linesClearedNum = 0;
+        int yIndex = 0;
+        while (iterator.hasNext()) {
+            Tile[] row = iterator.next();
+            boolean lineCleared = true;
+            for (Tile tile : row) {
+                if (tile.color == ' ') {
+                    lineCleared = false;
+                }
+            }
+            if (lineCleared) {
+                for (Tile tile : row) {
+                    tile.color = ' ';
+                    linesClearedNum++;
+                }
+                linesClearedNum++;
+                this.shiftDownFrom(yIndex);
+            }
+            yIndex++;
+        }
+        return linesClearedNum;
+    }
+
+    public void shiftDownFrom(int lineIndex) {
+        for(int y = lineIndex; y > 2; y--) {
+            for(int x = 0; x<sizeX; x++) {
+                if(board[y - 1][x].color !=' '){
+                    Tile temp = board[y][x];
+                    board[y][x] = board[y-1][x];
+                    board[y-1][x] = temp;
+                }
+            }
+        }
+    }
+
+    public int handleLines() {
+        return clearFullLines();
+    }
+
+    public void addLinesToBottomOfBoard(int linesNum) {
+
+        // shifting up tiles
+        for(int y = 0; y > sizeY - 1 - linesNum; y++) {
+            for(int x = 0; x<sizeX; x++) {
+                if(board[y + 1][x].color !=' '){
+                    Tile temp = board[y][x];
+                    board[y][x] = board[y + 1][x];
+                    board[y + 1][x] = temp;
+                }
+            }
+        }
+        Random random = new Random();
+        int spaceAtIndex = abs(random.nextInt(sizeX));
+
+        for(int y = sizeY - 1; y > sizeY - 1 - linesNum; y--){
+            for(int x = 0; x<sizeX; x++) {
+                if(x == spaceAtIndex) {
+                    continue;
+                }
+                board[y][x].color = 'X';
+           }
+        }
+    }
+
+    public boolean gameOver() {
+        Tile[] highestRow = board[0];
+        for (Tile tile: highestRow) {
+            if (tile.color != ' ') {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public Iterator<Tile[]> rowIterator(){
+        Tile[][] board = this.board;
+        return new Iterator<Tile[]>() {
+            int index = 0;
+            @Override
+            public boolean hasNext() {
+                return index < sizeY;
+            }
+
+            @Override
+            public Tile[] next() {
+                return board[index++];
+            }
+
+            public int getIndex() {
+                return index;
+            }
+        };
+    }
 }

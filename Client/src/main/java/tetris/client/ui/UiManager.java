@@ -1,5 +1,6 @@
 package tetris.client.ui;
 
+import javafx.application.Platform;
 import javafx.beans.value.ChangeListener;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Scene;
@@ -119,5 +120,9 @@ public class UiManager {
         char copy = symbol.get();
         symbol.set((char) 0);
         return copy;
+    }
+
+    public void closeProgram() {
+        Platform.exit();
     }
 }

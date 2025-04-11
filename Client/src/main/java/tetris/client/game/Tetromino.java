@@ -1,6 +1,9 @@
 package tetris.client.game;
 
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Iterator;
+import java.util.stream.Collectors;
 
 import static java.lang.Math.*;
 
@@ -145,7 +148,7 @@ public class Tetromino implements Iterable<Vector2d>{
     }
 
     // if move is invalid, we shift it until it becomes valid
-    public void makeMoveValid() {
+    public void makeMoveBorderValid() {
         Vector2d shift = new Vector2d(0,0);
         Vector2d possibleCorrection = new Vector2d(0,0);
         for (Vector2d tetrominoTile : this) { // iterate over ourselves
@@ -163,6 +166,22 @@ public class Tetromino implements Iterable<Vector2d>{
     public void applyGravity(double deltaTime) {
         centralPosition.y += (float) (velocity.y * deltaTime);
         centralPosition.x += (float) (velocity.x * deltaTime);
+    }
+
+    public Vector2d[] getLowestPoints() {
+        Vector2d[] currentPoints = new Vector2d[4];
+        int i = 0;
+        for (Vector2d tilePos : this) {
+            currentPoints[i] = tilePos;
+            i++;
+        }
+
+        Collection<Vector2d> lowestPointsMap = Arrays.stream(currentPoints).collect(Collectors.toMap(
+                p -> p.x, // key
+                p -> p, // value
+                (p1,p2) -> p2.y < p1.y ? p1 : p2 // key collision
+        )).values();
+        return lowestPointsMap.toArray(new Vector2d[0]);
     }
     public void setVelocity(Vector2d velocity) {
         this.velocity = velocity;
