@@ -13,8 +13,12 @@ import javafx.scene.layout.GridPane;
 import javafx.scene.layout.RowConstraints;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
+import javafx.scene.text.Font;
+import javafx.scene.text.Text;
+import javafx.scene.text.TextFlow;
 import javafx.stage.Stage;
 import tetris.client.HelloController;
+import tetris.client.game.PlayerData;
 import tetris.client.game.Tile;
 
 import java.util.ArrayList;
@@ -35,6 +39,10 @@ public class UiManager {
 
     AtomicReference<Character> symbol = new AtomicReference<>((char) -1);
 
+    TextFlow scoreText;
+
+    ArrayList<PlayerData> playerData;
+    TextFlow leaderBoard;
 
     public UiManager(AnchorPane root, Stage stage, FXMLLoader fxmlLoader, int sizeX, int sizeY) {
         this.root = root;
@@ -46,11 +54,15 @@ public class UiManager {
         this.scalableGroup = controller.getScalableGroup();
         this.enemiesGrid = controller.getEnemiesGrid();
 
+        this.scoreText = controller.getScoreText();
         this.sizeX = sizeX;
         this.sizeY = sizeY;
         this.rectArr = new Rectangle[sizeY][sizeX];
 
         this.enemiesBoards = new ArrayList<>();
+        this.leaderBoard = controller.getLeaderBoard();
+
+        this.playerData = new ArrayList<>();
 
         root.setOnKeyPressed(keyEvent -> {
             switch (keyEvent.getCode()) {
@@ -85,7 +97,7 @@ public class UiManager {
 
     public void init() {
         Scene scene = new Scene(root);
-        stage.setTitle("Hello!");
+        stage.setTitle("Tetris Battle Royal");
         stage.setScene(scene);
         stage.show();
 
@@ -201,6 +213,10 @@ public class UiManager {
         }
     }
 
+    public void addPlayerData(PlayerData player) {
+        this.playerData.add(player);
+    }
+
     public void getEnemiesBoards() {
         // for tests
         this.enemiesBoards.add(this.rectArr.clone());
@@ -223,6 +239,26 @@ public class UiManager {
         char copy = symbol.get();
         symbol.set((char) 0);
         return copy;
+    }
+
+    public void updateScore(int score, int linesCleared, float speedState) {
+        String text = "Score: " + Integer.toString(score) + "\nLines cleared: "
+                    + Integer.toString(linesCleared)
+                    + "\nSpeed: " + Integer.toString((int)(speedState));
+
+        Text showText = new Text(text);
+        showText.setFont(new Font(16));
+        this.scoreText.getChildren().set(0,showText);
+    }
+
+    public void updateScoreBoard() {
+        leaderBoard.getChildren().clear();
+        for (PlayerData data : playerData) {
+            Text text = new Text(data.toString());
+            text.setFont(new Font(14));
+
+            leaderBoard.getChildren().add(text);
+        }
     }
 
     public void closeProgram() {

@@ -18,6 +18,7 @@ public class TetrisGame {
     int score;
     int totalLinesCleared;
 
+    PlayerData playerData;
 
     final int MAX_SPEED_STATE = 3;
     AnimationTimer gameLoop = new AnimationTimer() {
@@ -105,6 +106,9 @@ public class TetrisGame {
                 enemiesBoards.add(board.getTiles().clone());
             }
             manager.updateEnemiesBoards(enemiesBoards);
+            manager.updateScoreBoard();
+            playerData.updateData(score,totalLinesCleared,speedState);
+            //manager.updateScore(score,totalLinesCleared,speedState);
             // send message to other players;
             //
             // wait for server answer
@@ -136,6 +140,8 @@ public class TetrisGame {
         this.fallingSpeed = new Vector2d(0,1F);
         this.totalLinesCleared = 0;
         this.score = 0;
+        this.playerData = new PlayerData('X',score,totalLinesCleared,speedState);
+        this.manager.addPlayerData(playerData);
     }
 
     public void init() {
@@ -149,6 +155,5 @@ public class TetrisGame {
     public void start() {
         gameLoop.start();
     }
-
 
 }
