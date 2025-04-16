@@ -24,7 +24,6 @@ public class HelloApplication extends Application {
         game.init();
         game.start();
     }
-
     public static void main(String[] args) {
         launch();
     }

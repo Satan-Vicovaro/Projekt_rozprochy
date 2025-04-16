@@ -21,6 +21,9 @@ public class HelloController {
     private AnchorPane scalableGroup;
 
     @FXML
+    private GridPane enemiesGrid;
+
+    @FXML
     public void initialize() {
 
     }
@@ -36,7 +39,12 @@ public class HelloController {
     protected void onHelloButtonClick() {
         welcomeText.setText("Welcome to JavaFX Application!");
     }
+
     public Label getWelcomeText(){
         return  welcomeText;
+    }
+
+    public GridPane getEnemiesGrid() {
+        return enemiesGrid;
     }
 }

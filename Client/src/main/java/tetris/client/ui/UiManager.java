@@ -3,16 +3,21 @@ package tetris.client.ui;
 import javafx.application.Platform;
 import javafx.beans.value.ChangeListener;
 import javafx.fxml.FXMLLoader;
+import javafx.geometry.HPos;
+import javafx.geometry.VPos;
 import javafx.scene.Scene;
 import javafx.scene.control.Label;
 import javafx.scene.layout.AnchorPane;
+import javafx.scene.layout.ColumnConstraints;
 import javafx.scene.layout.GridPane;
+import javafx.scene.layout.RowConstraints;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
 import javafx.stage.Stage;
 import tetris.client.HelloController;
 import tetris.client.game.Tile;
 
+import java.util.ArrayList;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class UiManager {
@@ -25,18 +30,27 @@ public class UiManager {
     int sizeY;
     int sizeX;
 
+    GridPane enemiesGrid;
+    ArrayList<Rectangle[][]> enemiesBoards;
+
     AtomicReference<Character> symbol = new AtomicReference<>((char) -1);
+
+
     public UiManager(AnchorPane root, Stage stage, FXMLLoader fxmlLoader, int sizeX, int sizeY) {
         this.root = root;
         this.stage = stage;
-
+        this.stage.setResizable(false);
         HelloController controller = fxmlLoader.getController();
         this.label = controller.getWelcomeText();
         this.mainBoard = controller.getMainGrid();
         this.scalableGroup = controller.getScalableGroup();
+        this.enemiesGrid = controller.getEnemiesGrid();
+
         this.sizeX = sizeX;
         this.sizeY = sizeY;
-        rectArr = new Rectangle[sizeY][sizeX];
+        this.rectArr = new Rectangle[sizeY][sizeX];
+
+        this.enemiesBoards = new ArrayList<>();
 
         root.setOnKeyPressed(keyEvent -> {
             switch (keyEvent.getCode()) {
@@ -115,6 +129,95 @@ public class UiManager {
             }
         }
     }
+
+    public void updateEnemiesBoards(ArrayList<Tile[][]>enemiesBoards) {
+        for(int i = 0; i <enemiesBoards.size(); i++ ) {
+            Tile[][] tileBoards = enemiesBoards.get(i);
+            Rectangle[][]enemyVisualBoard = this.enemiesBoards.get(i);
+
+            for (int y = 0; y<sizeY; y++) {
+                for (int x = 0; x < sizeX; x++) {
+                    if (tileBoards[y][x].color == 'X') {
+                        enemyVisualBoard[y][x].setFill(Color.RED);
+                    }
+                    else {
+                        enemyVisualBoard[y][x].setFill(Color.WHITE);
+                    }
+                }
+            }
+        }
+    }
+
+    public void loadEnemiesGrids() {
+        double width = this.enemiesGrid.getWidth();
+        double height = this.enemiesGrid.getHeight();
+
+        enemiesGrid.setGridLinesVisible(true);
+        // 80% of one grid cell size, 4 columns, gird cells should be squared-like;
+        double singleEnemyGridWidth = (width/4)*0.95;
+
+        int squaresInRow = 10;
+        for (int i = 0; i < 11; i++) {
+            GridPane singleEnemyGrid = new GridPane();
+            //singleEnemyGrid.setH
+            singleEnemyGrid.setGridLinesVisible(true);
+            singleEnemyGrid.setMaxWidth(singleEnemyGridWidth/2);
+            singleEnemyGrid.setMaxHeight(singleEnemyGridWidth);
+            for(int j = 0; j < squaresInRow; j++) {
+                ColumnConstraints column = new ColumnConstraints();
+                column.setPercentWidth(singleEnemyGridWidth / squaresInRow); // 10 columns;
+                singleEnemyGrid.getColumnConstraints().add(column);
+            }
+
+            for (int j = 0; j < 20 ; j++) {
+                RowConstraints row = new RowConstraints();
+                row.setPrefHeight(singleEnemyGridWidth / squaresInRow);// rows should have the same height as width
+                singleEnemyGrid.getRowConstraints().add(row);
+            }
+
+            double rectHeight = (singleEnemyGridWidth/20)*0.95;
+            double rectWidth = rectHeight;
+
+            for(int y = 0; y < 20; y++) {
+                for(int x = 0; x<10; x++) {
+                    Rectangle rectangle = new Rectangle(rectWidth,rectHeight);
+                    //rectangle.setStroke(Color.BLACK);
+                    if (x%2 == 0)
+                        rectangle.setFill(Color.RED);
+                    else
+                        rectangle.setFill(Color.WHITE);
+
+                    this.enemiesBoards.get(i)[y][x] = rectangle;
+                    GridPane.setHalignment(rectangle,HPos.CENTER);
+                    GridPane.setValignment(rectangle,VPos.CENTER);
+                    singleEnemyGrid.add(rectangle,x,y);
+                }
+            }
+
+            GridPane.setHalignment(singleEnemyGrid, HPos.CENTER);
+            GridPane.setValignment(singleEnemyGrid, VPos.CENTER);
+            int y = i/4;
+            this.enemiesGrid.add(singleEnemyGrid,i%4,y);
+        }
+    }
+
+    public void getEnemiesBoards() {
+        // for tests
+        this.enemiesBoards.add(this.rectArr.clone());
+        this.enemiesBoards.add(this.rectArr.clone());
+        this.enemiesBoards.add(this.rectArr.clone());
+    }
+
+    public void initEnemyBoards(int playerCount) {
+        for(int i = 0; i<playerCount;i++) {
+            this.enemiesBoards.add(new Rectangle[20][10]);
+        }
+    }
+
+    public void showEnemiesBoards() {
+
+    }
+
     public char getUserInput() {
         // we reset the current symbol from buffer and pass the copy
         char copy = symbol.get();

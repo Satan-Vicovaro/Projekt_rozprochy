@@ -92,7 +92,6 @@ public class GameBoard {
             if (lineCleared) {
                 for (Tile tile : row) {
                     tile.color = ' ';
-                    linesClearedNum++;
                 }
                 linesClearedNum++;
                 this.shiftDownFrom(yIndex);
