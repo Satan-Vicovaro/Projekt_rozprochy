@@ -20,82 +20,28 @@ public class TetrisGame {
 
     PlayerData playerData;
 
+    boolean gameOver = false;
+
     final int MAX_SPEED_STATE = 3;
     AnimationTimer gameLoop = new AnimationTimer() {
         // Move piece down, check collision, update score, etc.
-        boolean gameOver = false;
         Tetromino currentShape = null;
         long lastUpdate = 0;
 
         public void updateGame(double deltaTime) {
-            // get random Tetromino if currently no one is used by player
-            if (currentShape == null) {
-                currentShape = new Tetromino(new Vector2d((float)(sizeX/2), 0),sizeX,sizeY);
-                currentShape.setVelocity(fallingSpeed);
+            if (gameOver) {
+                //only update the board
+                return;
             }
 
+            currentShape = getNewShape(currentShape);
+            handlePlayersInput(currentShape);
 
-            // Player keyboard input
-            char input =  manager.getUserInput();
-
-            // if player moved a piece
-            if (input != 0) {
-                if (input =='A') {
-                    // move left
-                    currentShape.shiftBy(Vector2d.ones(Direction.LEFT));;
-                } else if (input =='D') {
-                    // move right
-                    currentShape.shiftBy(Vector2d.ones(Direction.RIGHT));
-                }else if (input == 'W') {
-                    while (!board.checkPlaceShape(currentShape)){
-                        currentShape.shiftBy(Vector2d.ones(Direction.DOWN));
-                    }
-                }else if (input == 'S') {
-                    currentShape.shiftBy(new Vector2d(0,1));
-                } else if (input == 'Q') {
-                    currentShape.rotateLeft();
-                } else if(input == 'E') {
-                    currentShape.rotateRight();
-                }
-            }
             currentShape.applyGravity(deltaTime);
             currentShape.makeMoveBorderValid();
 
             if (board.checkPlaceShape(currentShape)) { // placing shape
-
-                board.addToBoard(currentShape);
-                manager.updateBoard(board.getTiles());
-                currentShape = null;
-                int clearedLines = board.handleLines();
-                if (clearedLines == 0) {
-                    if (board.gameOver()) {
-                        gameOver = true;
-                    }
-                    return;
-                }
-                totalLinesCleared += clearedLines;
-
-                switch (clearedLines) {
-                    case 1:
-                        score +=40;
-                        break;
-                    case 2:
-                        score += 100;
-                        break;
-                    case 3:
-                        score += 300;
-                        break;
-                    case 4:
-                        score += 1200;
-                        break;
-                    default:
-                        break;
-                }
-
-                if (totalLinesCleared > 10 * speedState && speedState < MAX_SPEED_STATE) {
-                    speedState += 0.5F;
-                    fallingSpeed.mulBy(speedState); // adjusting fall speed
-                }
+                currentShape =  handlePlacingBlock(currentShape);
                 return;
             }
 
@@ -126,11 +72,81 @@ public class TetrisGame {
             lastUpdate = now;
             if (gameOver) {
                 this.stop();
-                manager.closeProgram();
+                //manager.closeProgram();
             }
         }
     };
+    public Tetromino getNewShape(Tetromino currentShape) {
+        // get random Tetromino if currently no one is used by player
+        if (currentShape == null) {
+            currentShape = new Tetromino(new Vector2d((float)(sizeX/2), 0),sizeX,sizeY);
+            currentShape.setVelocity(fallingSpeed);
+        }
+        return currentShape;
+    }
 
+    public void handlePlayersInput(Tetromino currentShape) {
+       // Player keyboard input
+       char input =  manager.getUserInput();
+
+       // if player moved a piece
+       if (input != 0) {
+           if (input =='A') {
+               // move left
+               currentShape.shiftBy(Vector2d.ones(Direction.LEFT));;
+           } else if (input =='D') {
+               // move right
+               currentShape.shiftBy(Vector2d.ones(Direction.RIGHT));
+           }else if (input == 'W') {
+               while (!board.checkPlaceShape(currentShape)){
+                   currentShape.shiftBy(Vector2d.ones(Direction.DOWN));
+               }
+           }else if (input == 'S') {
+               currentShape.shiftBy(new Vector2d(0,1));
+           } else if (input == 'Q') {
+               currentShape.rotateLeft();
+           } else if(input == 'E') {
+               currentShape.rotateRight();
+           }
+       }
+    }
+   public Tetromino handlePlacingBlock(Tetromino currentShape) {
+
+       board.addToBoard(currentShape);
+       manager.updateBoard(board.getTiles());
+       currentShape = null;
+       int clearedLines = board.handleLines();
+       if (clearedLines == 0) {
+           if (board.gameOver()) {
+               gameOver = true;
+           }
+           return currentShape;
+       }
+       totalLinesCleared += clearedLines;
+
+       switch (clearedLines) {
+           case 1:
+               score +=40;
+               break;
+           case 2:
+               score += 100;
+               break;
+           case 3:
+               score += 300;
+               break;
+           case 4:
+               score += 1200;
+               break;
+           default:
+               break;
+       }
+
+       if (totalLinesCleared > 10 * speedState && speedState < MAX_SPEED_STATE) {
+           speedState += 0.5F;
+           fallingSpeed.mulBy(speedState); // adjusting fall speed
+       }
+       return currentShape;
+   }
     public TetrisGame(int sizeX, int sizeY, UiManager manager) {
         this.sizeX = sizeX;
         this.sizeY = sizeY;

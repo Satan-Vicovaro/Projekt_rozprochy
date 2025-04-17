@@ -21,7 +21,7 @@ public class LobbyController {
     private ServerListener listener;
     private boolean playerIsReady;
     public LobbyController() {
-        this.listener = new ServerListener("local host",8080);
+        //this.listener = new ServerListener("local host",8080);
         this.playerIsReady = false;
     }
     public void loadLobby() throws IOException {
@@ -46,6 +46,9 @@ public class LobbyController {
 
     public void switchToGame(ActionEvent event) throws IOException {
 
+//        if (!listener.getStartGame()) {
+//            return;
+//        }
         this.fxmlLoader = new FXMLLoader(getClass().getResource("game-view.fxml"));
         //Parent root = FXMLLoader.load(getClass().getResource("game-view.fxml"));
         Parent root = fxmlLoader.load();
