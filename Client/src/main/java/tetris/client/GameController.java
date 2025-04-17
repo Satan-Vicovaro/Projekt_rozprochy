@@ -1,7 +1,10 @@
 package tetris.client;
 
-import javafx.beans.value.ChangeListener;
 import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Node;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
 import javafx.scene.control.Label;
 import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.GridPane;
@@ -9,8 +12,13 @@ import javafx.scene.layout.StackPane;
 import javafx.scene.text.Font;
 import javafx.scene.text.Text;
 import javafx.scene.text.TextFlow;
+import javafx.stage.Stage;
 
-public class HelloController {
+import javafx.event.ActionEvent;
+
+import java.io.IOException;
+
+public class GameController {
     @FXML
     private Label welcomeText;
 
@@ -34,6 +42,10 @@ public class HelloController {
 
     @FXML
     private TextFlow leaderBoard;
+
+    private Stage stage;
+    private Scene scene;
+    private Parent root;
 
     @FXML
     public void initialize() {
@@ -79,4 +91,13 @@ public class HelloController {
     public TextFlow getLeaderBoard() {
         return  leaderBoard;
     }
+
+    public void switchToLobby(ActionEvent event) throws IOException {
+        Parent root = FXMLLoader.load(getClass().getResource("lobby-view.fxml"));
+        stage =(Stage) ((Node)event.getSource()).getScene().getWindow();
+        scene = new Scene(root);
+        stage.setScene(scene);
+        stage.show();
+    }
+
 }

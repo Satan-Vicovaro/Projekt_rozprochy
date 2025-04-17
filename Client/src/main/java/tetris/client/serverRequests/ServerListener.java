@@ -27,4 +27,32 @@ public class ServerListener extends Thread {
 
         }
     }
+
+    public void sendPlayerIsReady() {
+        System.out.println("sending: player is ready");
+    }
+
+    public void sendPlayerIsNotReady() {
+        System.out.println("sending: player is not ready");
+    }
+
+    public boolean getStartGame() {
+        return true;
+    }
+
+    public void sendPlayerLost() {
+
+    }
+
+    public void getLeaderBoard() {
+
+    }
+
+    public void getEnemiesLines() {
+
+    }
+
+    public void getEnemiesBoards() {
+
+    }
 }

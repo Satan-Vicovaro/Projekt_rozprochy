@@ -17,7 +17,7 @@ import javafx.scene.text.Font;
 import javafx.scene.text.Text;
 import javafx.scene.text.TextFlow;
 import javafx.stage.Stage;
-import tetris.client.HelloController;
+import tetris.client.GameController;
 import tetris.client.game.PlayerData;
 import tetris.client.game.Tile;
 
@@ -48,7 +48,7 @@ public class UiManager {
         this.root = root;
         this.stage = stage;
         this.stage.setResizable(false);
-        HelloController controller = fxmlLoader.getController();
+        GameController controller = fxmlLoader.getController();//new GameController();
         this.label = controller.getWelcomeText();
         this.mainBoard = controller.getMainGrid();
         this.scalableGroup = controller.getScalableGroup();
@@ -96,10 +96,6 @@ public class UiManager {
     }
 
     public void init() {
-        Scene scene = new Scene(root);
-        stage.setTitle("Tetris Battle Royal");
-        stage.setScene(scene);
-        stage.show();
 
         double rectSize = mainBoard.getWidth()/mainBoard.getColumnCount() * 0.95;
         for (int y = 0; y<sizeY; y++) {
