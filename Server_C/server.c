@@ -5,6 +5,7 @@
 #include <unistd.h>      // for close()
 #include <arpa/inet.h>   // for socket functions
 #include <pthread.h>    // threads
+#include <netdb.h>
 
 #define PORT 8080
 #define BUFFER_SIZE 1024
@@ -41,7 +42,7 @@ typedef struct server_t {
 
 typedef struct client_listener_t {
     pthread_mutex_t *lock;
-    player_data_t *player;    
+    player_data_t player;    
     int client_fd;
 }client_listener_t;
 
@@ -49,8 +50,7 @@ bool start_game = false;
 void* client_listener(void* arg) {
 
     client_listener_t* listener = (client_listener_t*) arg;
-
-    printf("I sarted working %c \n", listener->player->player);
+    printf("I sarted working %c \n", listener->player.player);
 
     char buffer[BUFFER_SIZE] = "\0";
     bool player_in_lobby = false;
@@ -59,7 +59,7 @@ void* client_listener(void* arg) {
         if (bytes_read <= 0) {
             break;
         }
-        printf("Received: %s\n", buffer);
+        
         if (strcmp(buffer, "exit") == 0){
             break;
         }
@@ -67,10 +67,11 @@ void* client_listener(void* arg) {
             printf("Wrong message sent\n");
             continue;
         }
+
         // Send to player their data
-        buffer[0]=listener->player->player;
+        buffer[0]=listener->player.player;
         send(listener->client_fd, buffer, 1, 0);
-        printf("Sent to player:%c -> %c\n",listener->player->player);
+        printf("Sent to player:%c -> %c\n",listener->player.player, listener->player.player);
         player_in_lobby = true;
     };
 
@@ -79,21 +80,21 @@ void* client_listener(void* arg) {
         if (bytes_read <= 0) {
             break;
         }
-        printf("Received: %s\n", buffer);
+        //printf("Received: %s\n", buffer);
         if (strcmp(buffer, "exit") == 0){
             break;
         }
         if (strcmp(buffer, "ready\0")==0) {
-            printf("Player is ready\n");
-            listener->player->is_ready = true; 
+            printf("Player %c is ready\n", listener->player.player);
+            listener->player.is_ready = true; 
             buffer[0]=1;
             send(listener->client_fd,buffer,1,0); // sends 1 if ok
             continue;
         }
         else if (strcmp(buffer,"not ready\0")==0) {
-            printf("Player is not ready\n");
+            printf("Player %c is not ready\n",listener->player.player);
             
-            listener->player->is_ready = false;
+            listener->player.is_ready = false;
             buffer[0]=1;
             send(listener->client_fd,buffer,1,0); // sends 1 if ok
             continue;
@@ -121,7 +122,7 @@ int main() {
 
     // Bind to port
     address.sin_family = AF_INET;
-    address.sin_addr.s_addr = inet_addr("127.0.0.1"); // <- listening on this port
+    address.sin_addr.s_addr = INADDR_ANY; // <- listening on this port
     address.sin_port = htons(PORT);
     
     if (bind(server_fd, (struct sockaddr*) &address, sizeof(address)) < 0) {
@@ -138,14 +139,12 @@ int main() {
     }
     printf("Server is listening on port %d...\n", PORT);
 
-   // // Accept one connection
-   // if ((client_fd = accept(server_fd, (struct sockaddr*)&address, (socklen_t*)&addrlen)) < 0) {
-   //     perror("accept failed");
-   //     close(server_fd);
-   //     exit(EXIT_FAILURE);
-   // }
-   // printf("Client connected!\n");
+    char hostname[128];
+    gethostname(hostname, sizeof(hostname));
+    struct hostent *host_entry = gethostbyname(hostname);
+    char *IPbuffer = inet_ntoa(*((struct in_addr*) host_entry->h_addr_list[0]));
 
+    printf("Server IP: %s\n", IPbuffer);
 
     char ***player_boards;
 
@@ -159,18 +158,6 @@ int main() {
                 player_boards[z][y][x] = '1' + x;
             }    
         }
-    }
-
-    
-    for(int z = 0; z < MAX_PLAYER_COUNT;z++) {
-        printf("board: %d\n",z);
-        for(int y = 0; y<BOARD_SIZE_Y;y++) {
-            for(int x = 0; x<BOARD_SIZE_X;x++) {
-                printf("%c", player_boards[z][y][x]);
-            }    
-            printf("\n");
-        }
-        printf("\n");
     }
 
 
@@ -192,58 +179,24 @@ int main() {
 
         printf("Player accepted\n");
         // creating client handler
-        client_listener_t player_listener;
-        player_listener.client_fd = client_fd;
-        player_listener.lock = &lock;
-
-        player_data_t player_data;
-        player_data.board = player_boards[cur_player_count];
-        player_data.player = (char)('A' + cur_player_count);
-        player_data.is_ready = false;
-
-        player_score_t player_score;
-        player_score.game_stage = 0.0;
-        player_score.lines_cleared = 0;
-        player_score.score = 0;
+        client_listener_t* player_listener = (client_listener_t*)malloc(sizeof(client_listener_t));
         
-        player_data.score = player_score;
-        player_listener.player = &player_data;
+        player_listener->client_fd = client_fd;
+        player_listener->lock = &lock;
 
-        pthread_create(&client_handlers[cur_player_count],NULL,client_listener, &player_listener);        
+        player_listener->player.board = player_boards[cur_player_count];
+        player_listener->player.player = (char)('A' + cur_player_count);
+        player_listener->player.is_ready = false;
+        
+        player_listener->player.score.game_stage = 0.0;
+        player_listener->player.score.lines_cleared = 0;
+        player_listener->player.score.score = 0;
+        
+        pthread_create(&client_handlers[cur_player_count],NULL,client_listener, player_listener);        
         
         cur_player_count++;
     }
-
-
-   // pthread_t t1;    
-
-   // client_listener_t player_listener;
-   // player_listener.client_fd = client_fd;
-   // player_listener.lock = &lock;
-
-   // pthread_create(&t1,NULL,client_listener, &player_listener);
-    
-    
-    
-   // char output_buffer[BUFFER_SIZE] = {0};
-   // while (1) {
-   //     //scanf("%s", output_buffer);
-   //     // Read message from client
-   //     int bytes_read = read(client_fd, buffer, BUFFER_SIZE);
-   //     if (bytes_read <= 0) {
-   //         continue;
-   //     }
-   //     printf("Received: %s\n", buffer);
-   //     if (strcmp(buffer, "exit") == 0){
-   //         break;
-   //     }
-
-   //     // Echo message back to client
-   //     send(client_fd, buffer, bytes_read, 0);
-   //     printf("Echoed back to client.\n");
-   // 
-   // }
-    
+ 
     // Clean up
     close(client_fd);
     close(server_fd);
