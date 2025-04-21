@@ -43,6 +43,10 @@ public class LobbyController {
         }
     }
 
+    public void connectToServer() {
+        this.listener = new ServerListener("127.0.0.1",8080);
+        this.listener.start();
+    }
 
     public void switchToGame(ActionEvent event) throws IOException {
 

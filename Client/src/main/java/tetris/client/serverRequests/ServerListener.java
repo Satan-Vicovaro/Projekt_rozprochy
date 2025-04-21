@@ -2,15 +2,19 @@ package tetris.client.serverRequests;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.Socket;
+import java.util.Scanner;
 
 public class ServerListener extends Thread {
     private Socket socket;
-    private InputStream stream;
+    private InputStream inStream;
+    private OutputStream outStream;
     public ServerListener(String host, int portNumber) {
         try {
             this.socket = new Socket(host, portNumber);
-            this.stream =  socket.getInputStream();
+            this.inStream =  socket.getInputStream();
+            this.outStream = socket.getOutputStream();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -21,7 +25,17 @@ public class ServerListener extends Thread {
         try {
             while (true) {
                 String message = "";
-                stream.read(message.getBytes());
+                Scanner scanner = new Scanner(System.in);
+                message = scanner.nextLine();
+                outStream.write(message.getBytes());
+                //inStream.mark();
+
+                byte[] inputMessage  =  inStream.readNBytes(10);
+                StringBuilder inMessage = new StringBuilder();
+                for(byte sign : inputMessage) {
+                    inMessage.append((char) sign);
+                }
+                System.out.println(inMessage);
             }
         }catch (Exception e) {
 
