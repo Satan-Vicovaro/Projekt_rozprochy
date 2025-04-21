@@ -13,6 +13,11 @@
 #define BOARD_SIZE_Y 20
 #define MAX_PLAYER_COUNT 16
 
+typedef enum bool {
+    true = 2137,
+    false =0
+}bool;
+
 typedef struct player_score_t {
     int score;
     int lines_cleared;
@@ -22,13 +27,13 @@ typedef struct player_score_t {
 typedef struct player_data_t{
     char player;
     char **board;
+    bool is_ready;
     player_score_t score;
 }player_data_t;
 
 typedef struct server_t {
     player_data_t player_array[MAX_PLAYER_COUNT];
     int player_num;
-    
     int server_fd, client_fd;
     struct sockaddr_in address;
     int addrlen;    
@@ -40,27 +45,62 @@ typedef struct client_listener_t {
     int client_fd;
 }client_listener_t;
 
+bool start_game = false;
 void* client_listener(void* arg) {
 
     client_listener_t* listener = (client_listener_t*) arg;
 
-    printf("I sarted working %c", listener->player->player);
+    printf("I sarted working %c \n", listener->player->player);
 
     char buffer[BUFFER_SIZE] = "\0";
-    while(1) {
+    bool player_in_lobby = false;
+    while(!player_in_lobby) {
         int bytes_read = read(listener->client_fd, buffer, BUFFER_SIZE);
         if (bytes_read <= 0) {
-            continue;
+            break;
         }
         printf("Received: %s\n", buffer);
         if (strcmp(buffer, "exit") == 0){
             break;
         }
-
-        // Echo message back to client
-        send(listener->client_fd, buffer, bytes_read, 0);
-        printf("Echoed back to client.\n");
+        if (strcmp(buffer, "connect to lobby") != 0) {
+            printf("Wrong message sent\n");
+            continue;
+        }
+        // Send to player their data
+        buffer[0]=listener->player->player;
+        send(listener->client_fd, buffer, 1, 0);
+        printf("Sent to player:%c -> %c\n",listener->player->player);
+        player_in_lobby = true;
     };
+
+    while(!start_game) { 
+        int bytes_read = read(listener->client_fd, buffer, BUFFER_SIZE);
+        if (bytes_read <= 0) {
+            break;
+        }
+        printf("Received: %s\n", buffer);
+        if (strcmp(buffer, "exit") == 0){
+            break;
+        }
+        if (strcmp(buffer, "ready\0")==0) {
+            printf("Player is ready\n");
+            listener->player->is_ready = true; 
+            buffer[0]=1;
+            send(listener->client_fd,buffer,1,0); // sends 1 if ok
+            continue;
+        }
+        else if (strcmp(buffer,"not ready\0")==0) {
+            printf("Player is not ready\n");
+            
+            listener->player->is_ready = false;
+            buffer[0]=1;
+            send(listener->client_fd,buffer,1,0); // sends 1 if ok
+            continue;
+        }
+        printf("Wrong message sent\n");
+
+    }
 
     return NULL; 
 } 
@@ -110,14 +150,27 @@ int main() {
     char ***player_boards;
 
     //player board init;
+    player_boards = (char***)malloc(sizeof(char*)*MAX_PLAYER_COUNT);
     for(int z = 0; z < MAX_PLAYER_COUNT;z++) {
         player_boards[z] = (char**) malloc(sizeof(char*)*BOARD_SIZE_Y);
         for(int y = 0; y<BOARD_SIZE_Y;y++) {
             player_boards[z][y] = (char*)malloc(sizeof(char)*BOARD_SIZE_X);
             for(int x = 0; x<BOARD_SIZE_X;x++) {
-                player_boards[z][y][x] = 0;
+                player_boards[z][y][x] = '1' + x;
             }    
         }
+    }
+
+    
+    for(int z = 0; z < MAX_PLAYER_COUNT;z++) {
+        printf("board: %d\n",z);
+        for(int y = 0; y<BOARD_SIZE_Y;y++) {
+            for(int x = 0; x<BOARD_SIZE_X;x++) {
+                printf("%c", player_boards[z][y][x]);
+            }    
+            printf("\n");
+        }
+        printf("\n");
     }
 
 
@@ -125,9 +178,9 @@ int main() {
     pthread_mutex_init(&lock, NULL);    
     pthread_t client_handlers[MAX_PLAYER_COUNT];
 
-    printf("Waiting for players to join");
+    printf("Waiting for players to join\n");
     int cur_player_count = 0;
-    while (1) { // waiting players to connect 
+    while (cur_player_count < MAX_PLAYER_COUNT) { // waiting players to connect 
         int client_fd = 0;
         
         // waiting for connection
@@ -137,6 +190,7 @@ int main() {
             exit(EXIT_FAILURE);
         }
 
+        printf("Player accepted\n");
         // creating client handler
         client_listener_t player_listener;
         player_listener.client_fd = client_fd;
@@ -145,6 +199,7 @@ int main() {
         player_data_t player_data;
         player_data.board = player_boards[cur_player_count];
         player_data.player = (char)('A' + cur_player_count);
+        player_data.is_ready = false;
 
         player_score_t player_score;
         player_score.game_stage = 0.0;
@@ -160,34 +215,34 @@ int main() {
     }
 
 
-    pthread_t t1;    
+   // pthread_t t1;    
 
-    client_listener_t player_listener;
-    player_listener.client_fd = client_fd;
-    player_listener.lock = &lock;
+   // client_listener_t player_listener;
+   // player_listener.client_fd = client_fd;
+   // player_listener.lock = &lock;
 
-    pthread_create(&t1,NULL,client_listener, &player_listener);
+   // pthread_create(&t1,NULL,client_listener, &player_listener);
     
     
     
-    char output_buffer[BUFFER_SIZE] = {0};
-    while (1) {
-        //scanf("%s", output_buffer);
-        // Read message from client
-        int bytes_read = read(client_fd, buffer, BUFFER_SIZE);
-        if (bytes_read <= 0) {
-            continue;
-        }
-        printf("Received: %s\n", buffer);
-        if (strcmp(buffer, "exit") == 0){
-            break;
-        }
+   // char output_buffer[BUFFER_SIZE] = {0};
+   // while (1) {
+   //     //scanf("%s", output_buffer);
+   //     // Read message from client
+   //     int bytes_read = read(client_fd, buffer, BUFFER_SIZE);
+   //     if (bytes_read <= 0) {
+   //         continue;
+   //     }
+   //     printf("Received: %s\n", buffer);
+   //     if (strcmp(buffer, "exit") == 0){
+   //         break;
+   //     }
 
-        // Echo message back to client
-        send(client_fd, buffer, bytes_read, 0);
-        printf("Echoed back to client.\n");
-    
-    }
+   //     // Echo message back to client
+   //     send(client_fd, buffer, bytes_read, 0);
+   //     printf("Echoed back to client.\n");
+   // 
+   // }
     
     // Clean up
     close(client_fd);

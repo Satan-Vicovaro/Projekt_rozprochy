@@ -36,7 +36,7 @@ public class LobbyController {
     }
 
     public void playerIsReady(ActionEvent event) {
-        if (playerIsReady) {
+        if (listener.isPlayerReady()) {
             listener.sendPlayerIsNotReady();
         }else {
             listener.sendPlayerIsReady();
