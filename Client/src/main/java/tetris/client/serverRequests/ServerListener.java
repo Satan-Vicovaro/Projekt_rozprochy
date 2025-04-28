@@ -1,9 +1,12 @@
 package tetris.client.serverRequests;
 
+import tetris.client.game.PlayerData;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
+import java.util.Arrays;
 import java.util.Scanner;
 
 public class ServerListener extends Thread {
@@ -90,6 +93,23 @@ public class ServerListener extends Thread {
         }
     }
 
+    public void getOtherLobbyPlayers() {
+        try {
+           this.outStream.write("get other players\0".getBytes());
+
+           byte[] answerInfo = inStream.readNBytes(5);
+           int messageLength = 0;
+           for(int i = 0; i < 4;i++) {
+               messageLength += (messageLength<<8) + answerInfo[i] & 0xFF;
+           }
+           int playerNumber = answerInfo[4];
+           byte[] data = inStream.readNBytes(messageLength - 5);
+            //PlayerData playerData = new PlayerData();
+           System.out.println("mmm a lot of data" + Arrays.toString(data));
+        } catch (Exception e) {
+            System.out.println();
+        }
+    }
     public boolean getStartGame() {
         return true;
     }

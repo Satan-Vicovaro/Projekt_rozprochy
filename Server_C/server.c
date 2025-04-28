@@ -6,6 +6,7 @@
 #include <arpa/inet.h>   // for socket functions
 #include <pthread.h>    // threads
 #include <netdb.h>
+#include <sys/select.h>
 
 #define PORT 8080
 #define BUFFER_SIZE 1024
@@ -16,8 +17,16 @@
 
 typedef enum bool {
     true = 2137,
-    false =0
+    false = 0
 }bool;
+
+typedef enum message_type {
+    join_lobby = (char) 9,
+    update_board = (char) 10,
+    update_score = (char) 11,
+    get_lines_from_player = (char) 12,
+    send_lines_to_player  = (char) 13,
+} message_type;
 
 typedef struct player_score_t {
     int score;
@@ -32,34 +41,117 @@ typedef struct player_data_t{
     player_score_t score;
 }player_data_t;
 
+typedef struct thread_task_t {
+    message_type task; 
+    player_data_t* data;
+} thread_task_t;
+
+typedef struct client_listener_t client_listener_t;
+
+typedef struct client_listener_t {
+    pthread_mutex_t *lock;
+    player_data_t player;
+    thread_task_t *task;   
+    client_listener_t *thread_arr_ref;
+    int *cur_player_num;
+
+    int client_fd;
+    int my_index;
+}client_listener_t;
+
+
 typedef struct server_t {
-    player_data_t player_array[MAX_PLAYER_COUNT];
+    
+    //shared data
+    client_listener_t *thread_array;
+
+    pthread_mutex_t lock;
+    pthread_t client_handlers[MAX_PLAYER_COUNT];
+   
+    thread_task_t *thread_task_array;
+    
+    //server data
     int player_num;
-    int server_fd, client_fd;
+    int server_fd;
     struct sockaddr_in address;
     int addrlen;    
 }server_t;
 
-typedef struct client_listener_t {
-    pthread_mutex_t *lock;
-    player_data_t player;    
-    int client_fd;
-}client_listener_t;
+//typedef enum task_type {
+//    update_board,
+//    update_score,
+//    update_lines
+//} task_type;
 
 bool start_game = false;
-void* client_listener(void* arg) {
 
-    client_listener_t* listener = (client_listener_t*) arg;
-    printf("I sarted working %c \n", listener->player.player);
+
+void handle_server_tasks(client_listener_t *l) {
+    
+}
+
+void handle_player_tasks(client_listener_t *l) {
+    char buffer[BUFFER_SIZE] = "\0";
+    int bytes_read = read(l->client_fd, buffer, BUFFER_SIZE);
+    if (bytes_read <= 0) {
+        return;
+    }
+    message_type message_type = buffer[0];
+
+    switch (message_type)
+    {
+    case update_board:
+        printf("Todo: update_board\n");
+        /* code */
+        break;
+    
+    case update_score:
+        printf("Todo: update score\n");
+        /* code */
+        break;
+    case get_lines_from_player:
+        printf("Todo: get lines from player\n");
+        /* code */
+        break;
+    default:
+        printf("Got wrong message_type at player task \n");
+        break;
+    }
+}
+void main_thread_loop(client_listener_t *l) {
+    
+    //setting up breaking from read() funtion
+    struct timeval timeout = {5,0}; //5.0 second timeout
+    fd_set read_fds;
+    FD_ZERO(&read_fds);
+    FD_SET(l->client_fd,&read_fds); // add client)fd to select
+
+    while (true) {        
+        int ret = select(l->client_fd + 1, &read_fds,NULL,NULL,&timeout); // waits timeout's seconds for input
+        
+        if (ret == -1) {
+            perror("select");
+            return;
+        } else if (ret == 0){
+            printf("Timeout: looking for server tasks: %c\n", l->player.player);
+            handle_server_tasks(l);
+        } else {
+            printf("Handling player info: %c\n", l->player.player);
+            handle_player_tasks(l);
+        }     
+    }
+}
+
+void connect_to_lobby(client_listener_t *l) {
 
     char buffer[BUFFER_SIZE] = "\0";
     bool player_in_lobby = false;
     while(!player_in_lobby) {
-        int bytes_read = read(listener->client_fd, buffer, BUFFER_SIZE);
+        int bytes_read = read(l->client_fd, buffer, BUFFER_SIZE);
+        
         if (bytes_read <= 0) {
             break;
         }
-        
         if (strcmp(buffer, "exit") == 0){
             break;
         }
@@ -69,12 +161,22 @@ void* client_listener(void* arg) {
         }
 
         // Send to player their data
-        buffer[0]=listener->player.player;
-        send(listener->client_fd, buffer, 1, 0);
-        printf("Sent to player:%c -> %c\n",listener->player.player, listener->player.player);
+        buffer[0]=l->player.player;
+        send(l->client_fd, buffer, 1, 0);
+        printf("Sent to player:%c -> %c\n",l->player.player, l->player.player);
         player_in_lobby = true;
+        l->player.is_ready = true;
     };
+}
 
+void* client_listener(void* arg) {
+
+    client_listener_t* listener = (client_listener_t*) arg;
+    printf("I sarted working %c \n", listener->player.player);
+
+    connect_to_lobby(listener);
+
+    char buffer [BUFFER_SIZE] = {0};
     while(!start_game) { 
         int bytes_read = read(listener->client_fd, buffer, BUFFER_SIZE);
         if (bytes_read <= 0) {
@@ -84,67 +186,82 @@ void* client_listener(void* arg) {
         if (strcmp(buffer, "exit") == 0){
             break;
         }
-        if (strcmp(buffer, "ready\0")==0) {
+        if (strcmp(buffer, "ready\0") == 0) {
             printf("Player %c is ready\n", listener->player.player);
             listener->player.is_ready = true; 
             buffer[0]=1;
             send(listener->client_fd,buffer,1,0); // sends 1 if ok
             continue;
         }
-        else if (strcmp(buffer,"not ready\0")==0) {
+        else if (strcmp(buffer,"not ready\0") == 0) {
             printf("Player %c is not ready\n",listener->player.player);
             
             listener->player.is_ready = false;
             buffer[0]=1;
             send(listener->client_fd,buffer,1,0); // sends 1 if ok
             continue;
+        } else if(strcmp(buffer,"get other players\0") == 0) {
+            
+            client_listener_t* threads =  listener->thread_arr_ref;
+            int message_length = 4 + 1; // reserving first 4 bytes for message length (java inbuffer issues) + player number 1 byte
+            for (int i=0;i<*(listener->cur_player_num);i++) {
+                if (i == listener->my_index) 
+                    continue;
+                
+                
+                memcpy(buffer + message_length, &threads[i].player.player, sizeof(threads[i].player.player));
+                message_length += sizeof(threads[i].player.player); // should be sizeof(char)
+                
+                memcpy(buffer + message_length,&threads[i].player.score.game_stage, sizeof(threads[i].player.score.game_stage));
+                message_length += sizeof(threads[i].player.score.game_stage); // should be sizeof(float)
+
+                memcpy(buffer + message_length,&threads[i].player.score.score,sizeof(threads[i].player.score.score));
+                message_length += sizeof(threads[i].player.score.score); // should be sizeof(int)
+                
+                buffer[message_length] =(char) -1; // end of player sign
+                message_length++;
+            }
+            buffer[message_length] = '\0';
+            message_length++;
+
+            memcpy(buffer,&message_length,sizeof(int));
+            buffer[4] = (char) *(listener->cur_player_num);
+            
+            send(listener->client_fd,buffer,BUFFER_SIZE,0);
+            continue;
         }
         printf("Wrong message sent\n");
-
     }
+
+    //main_thread_loop(listener);
 
     return NULL; 
-} 
+}
 
+void listen_for_connections(server_t* s) {
+   
+    printf("Waiting for players to join\n");
+    int cur_player_count = 0;
+    while (cur_player_count < MAX_PLAYER_COUNT) { // waiting players to connect 
+        int client_fd = 0;
+        
+        // waiting for connection
+        if ((client_fd = accept(s->server_fd, (struct sockaddr*)&(s->address),(socklen_t*)& (s->addrlen))) < 0) { 
+            perror("accept failed");
+            close(s->server_fd);
+            exit(EXIT_FAILURE);
+        }
+        printf("Player accepted\n");
+        
+        s->thread_array[cur_player_count].client_fd = client_fd;
 
-int main() {
-    int server_fd, client_fd;
-    struct sockaddr_in address;
-    int addrlen = sizeof(address);
-    char buffer[BUFFER_SIZE] = {0};
-
-    
-    // Create socket file descriptor
-    if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
-        perror("socket failed");
-        exit(EXIT_FAILURE);
+        pthread_create(&(s->client_handlers[cur_player_count]),NULL,client_listener, &(s->thread_array[cur_player_count]));        
+        cur_player_count++;
+        s->player_num = cur_player_count;
     }
+}
 
-    // Bind to port
-    address.sin_family = AF_INET;
-    address.sin_addr.s_addr = INADDR_ANY; // <- listening on this port
-    address.sin_port = htons(PORT);
-    
-    if (bind(server_fd, (struct sockaddr*) &address, sizeof(address)) < 0) {
-        perror("bind failed");
-        close(server_fd);
-        exit(EXIT_FAILURE);
-    }
-
-    // Listen for connections
-    if (listen(server_fd, 3) < 0) {
-        perror("listen failed");
-        close(server_fd);
-        exit(EXIT_FAILURE);
-    }
-    printf("Server is listening on port %d...\n", PORT);
-
-    char hostname[128];
-    gethostname(hostname, sizeof(hostname));
-    struct hostent *host_entry = gethostbyname(hostname);
-    char *IPbuffer = inet_ntoa(*((struct in_addr*) host_entry->h_addr_list[0]));
-
-    printf("Server IP: %s\n", IPbuffer);
+void init_player_data_at_server(server_t* s) {
 
     char ***player_boards;
 
@@ -159,47 +276,75 @@ int main() {
             }    
         }
     }
-
-
-    pthread_mutex_t lock;
-    pthread_mutex_init(&lock, NULL);    
-    pthread_t client_handlers[MAX_PLAYER_COUNT];
-
-    printf("Waiting for players to join\n");
-    int cur_player_count = 0;
-    while (cur_player_count < MAX_PLAYER_COUNT) { // waiting players to connect 
-        int client_fd = 0;
+    
+    // mutext lock
+    pthread_mutex_init(&(s->lock), NULL);    
+    
+    // thread data array
+    client_listener_t* player_listener_array = (client_listener_t*) malloc(sizeof(client_listener_t) * MAX_PLAYER_COUNT);
+    for(int i =0; i<MAX_PLAYER_COUNT;i++) {
+        player_listener_array[i].client_fd = -1;
+        player_listener_array[i].lock = &(s->lock);
+        player_listener_array[i].thread_arr_ref = player_listener_array;
+        player_listener_array[i].my_index = i;
+        player_listener_array[i].cur_player_num = &(s->player_num);
         
-        // waiting for connection
-        if ((client_fd = accept(server_fd, (struct sockaddr*)&address,(socklen_t*)&addrlen)) < 0) { 
-            perror("accept failed");
-            close(server_fd);
-            exit(EXIT_FAILURE);
-        }
+        player_listener_array[i].player.board = player_boards[i]; 
+        player_listener_array[i].player.player = (char)('A' + i); 
+        player_listener_array[i].player.is_ready = false;
 
-        printf("Player accepted\n");
-        // creating client handler
-        client_listener_t* player_listener = (client_listener_t*)malloc(sizeof(client_listener_t));
-        
-        player_listener->client_fd = client_fd;
-        player_listener->lock = &lock;
-
-        player_listener->player.board = player_boards[cur_player_count];
-        player_listener->player.player = (char)('A' + cur_player_count);
-        player_listener->player.is_ready = false;
-        
-        player_listener->player.score.game_stage = 0.0;
-        player_listener->player.score.lines_cleared = 0;
-        player_listener->player.score.score = 0;
-        
-        pthread_create(&client_handlers[cur_player_count],NULL,client_listener, player_listener);        
-        
-        cur_player_count++;
+        player_listener_array[i].player.score.game_stage = 0.0;
+        player_listener_array[i].player.score.lines_cleared = 0;
+        player_listener_array[i].player.score.score = 0;
     }
+    s->thread_array = player_listener_array;
+}
+
+void start_server(server_t* s) {
+    // Create socket file descriptor
+    if ((s->server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
+        perror("socket failed");
+        exit(EXIT_FAILURE);
+    }
+
+    // Bind to port
+    s->address.sin_family = AF_INET;
+    s->address.sin_addr.s_addr = INADDR_ANY; // <- listening on this port
+    s->address.sin_port = htons(PORT);
+    
+    if (bind(s->server_fd, (struct sockaddr*) &(s->address), sizeof(s->address)) < 0) {
+        perror("bind failed");
+        close(s->server_fd);
+        exit(EXIT_FAILURE);
+    }
+
+    // Listen for connections
+    if (listen(s->server_fd, 3) < 0) {
+        perror("listen failed");
+        close(s->server_fd);
+        exit(EXIT_FAILURE);
+    }
+    printf("Server is listening on port %d...\n", PORT);
+
+    // printing server ip
+    char hostname[128];
+    gethostname(hostname, sizeof(hostname));
+    struct hostent *host_entry = gethostbyname(hostname);
+    char *IPbuffer = inet_ntoa(*((struct in_addr*) host_entry->h_addr_list[0]));
+
+    printf("Server IP: %s\n", IPbuffer);
+        
+}
+
+int main() {
+    server_t server;
+
+    start_server(&server);
+    init_player_data_at_server(&server);
+    listen_for_connections(&server);
  
     // Clean up
-    close(client_fd);
-    close(server_fd);
+    close(server.server_fd);
 
     return 0;
 }

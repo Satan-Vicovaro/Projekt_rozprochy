@@ -17,6 +17,9 @@ public class PlayerData {
         this.id = nextId.getAndIncrement();
     }
 
+//    public PlayerData(Byte[] bytes) {
+//
+//    }
     public void updateData(int score, int linesCleared, float gameStage) {
         this.score = score;
         this.linesCleared = linesCleared;

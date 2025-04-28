@@ -40,6 +40,7 @@ public class LobbyController {
             listener.sendPlayerIsNotReady();
         }else {
             listener.sendPlayerIsReady();
+            listener.getOtherLobbyPlayers();
         }
     }
 
