@@ -15,6 +15,8 @@
 #define BOARD_SIZE_Y 20
 #define MAX_PLAYER_COUNT 16
 
+#define MAX_QUEUE_SIZE 32 
+
 typedef enum bool {
     true = 2137,
     false = 0
@@ -41,6 +43,11 @@ typedef struct player_data_t{
     player_score_t score;
 }player_data_t;
 
+typedef struct task_queue_t {
+    thread_task_t array[MAX_QUEUE_SIZE];
+    int current_size;
+} task_queue_t;
+
 typedef struct thread_task_t {
     message_type task; 
     player_data_t* data;
@@ -51,7 +58,8 @@ typedef struct client_listener_t client_listener_t;
 typedef struct client_listener_t {
     pthread_mutex_t *lock;
     player_data_t player;
-    thread_task_t *task;   
+    thread_task_t *task;
+    thread_task_queue_t ;
     client_listener_t *thread_arr_ref;
     int *cur_player_num;
 
@@ -85,6 +93,66 @@ typedef struct server_t {
 
 bool start_game = false;
 
+typedef struct task_manager_t{
+    task_queue_t *task_queue_array;
+    int curent_size;
+    int max_size;
+}task_manager_t;
+
+thread_task_t pop_task_from_queue(task_queue_t* queue ) {
+
+}
+
+// TODO: make it thread safe
+int add_task_to_queue(thread_task_t task, task_queue_t* queue) {
+    if(queue->current_size >= MAX_QUEUE_SIZE) {
+        return 1;
+    }
+    queue->array[queue->current_size] = task;
+    queue->current_size++;
+}
+
+void send_task_to_all(int sender_index, thread_task_t task, task_manager_t* t_m) {
+    for(int i=0; i < t_m->max_size; i++) {
+        if (i == sender_index) {
+         continue;
+        }
+        if(add_task_to_queue(task, &(t_m->task_queue_array[i]))) {
+            printf("could not add task to queue\n");
+        }
+    }
+}
+
+void send_task_to_one(int sender_index, int reciever_index,thread_task_t task,task_manager_t* t_m) {
+    if(reciever_index < 0 || reciever_index >= t_m->curent_size) {
+        printf("wrong reciever index\n");
+        return;        
+    }
+    if(sender_index < 0 || sender_index >= t_m->curent_size) {
+        printf("wrong sender index\n");
+        return;        
+    }
+    if(add_task_to_queue(task, &(t_m->task_queue_array[reciever_index]))) {
+        printf("could not add task to queue\n");
+    }
+    
+}
+
+void init_task_manager(task_manager_t* t_m) {
+    t_m->max_size = MAX_PLAYER_COUNT;
+    t_m->curent_size = 0;
+    t_m->task_queue_array = (task_queue_t*)malloc(sizeof(task_queue_t)*MAX_PLAYER_COUNT);
+}
+void add_queue_to_task_manager(task_manager_t* t_m,task_queue_t* thread_queue ) {
+    if(t_m->curent_size >= t_m->max_size) {
+        printf("task manager queue is full\n");
+        return;
+    }
+
+    t_m->task_queue_array[t_m->curent_size - 1] = *thread_queue;
+    t_m->curent_size++;
+}
+
 
 void handle_server_tasks(client_listener_t *l) {
     
@@ -102,9 +170,23 @@ void handle_player_tasks(client_listener_t *l) {
     {
     case update_board:
         printf("Todo: update_board\n");
+        
+        //updating board
+        int index = 1;
+        for(int y = 0; y < BOARD_SIZE_Y; y++) {
+            for(int x = 0; x < BOARD_SIZE_X; x++) {
+                l->player.board[y][x] = buffer[index];
+                index++;
+            }
+        }
+       
+        // send information to other players
+        thread_task_t task;
+        task.task = update_board;
+        task.data = &(l->player);
+        
         /* code */
         break;
-    
     case update_score:
         printf("Todo: update score\n");
         /* code */
