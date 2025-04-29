@@ -15,7 +15,7 @@
          </font>
       </Label>
       <Button layoutX="388.0" layoutY="501.0" mnemonicParsing="false" onAction="#switchToGame" prefHeight="47.0" prefWidth="94.0" text="Ready" />
-      <TextFlow layoutX="54.0" layoutY="106.0" prefHeight="374.0" prefWidth="762.0">
+      <TextFlow fx:id="lobbyPlayerText" layoutX="54.0" layoutY="106.0" prefHeight="374.0" prefWidth="762.0">
          <children>
             <Text strokeType="OUTSIDE" strokeWidth="0.0" text="Meow meow meow meow" />
          </children>

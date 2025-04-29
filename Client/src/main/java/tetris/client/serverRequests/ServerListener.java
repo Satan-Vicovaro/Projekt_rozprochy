@@ -8,6 +8,7 @@ import java.io.OutputStream;
 import java.net.Socket;
 import java.util.Arrays;
 import java.util.Scanner;
+import java.util.Vector;
 
 public class ServerListener extends Thread {
     private Socket socket;
@@ -67,8 +68,9 @@ public class ServerListener extends Thread {
     public void sendPlayerIsReady() {
         try {
             System.out.println("sending: player is ready");
-            String message = "ready\0";
-            this.outStream.write(message.getBytes());
+            //String message = "ready\0";
+            byte[] message = {2}; // 2 <-> send: player_ready
+            this.outStream.write(message);
             byte[] answer = inStream.readNBytes(1);
             if(answer[0]==1) {
                 this.playerReady = true;
@@ -81,8 +83,8 @@ public class ServerListener extends Thread {
     public void sendPlayerIsNotReady() {
         System.out.println("sending: player is not ready");
         try {
-            String message = "not ready\0";
-            this.outStream.write(message.getBytes());
+            byte[] message = {3}; // 3 <-> send: player_not_ready
+            this.outStream.write(message);
 
             byte[] answer = inStream.readNBytes(1);
             if(answer[0]==1) {
@@ -93,9 +95,9 @@ public class ServerListener extends Thread {
         }
     }
 
-    public void getOtherLobbyPlayers() {
+    public Vector<PlayerData> getOtherLobbyPlayers() {
         try {
-           this.outStream.write("get other players\0".getBytes());
+           this.outStream.write(4); // 4 <-> get_other_players
 
            byte[] answerInfo = inStream.readNBytes(5);
            int messageLength = 0;
@@ -104,11 +106,13 @@ public class ServerListener extends Thread {
            }
            int playerNumber = answerInfo[4];
            byte[] data = inStream.readNBytes(messageLength - 5);
-            //PlayerData playerData = new PlayerData();
-           System.out.println("mmm a lot of data" + Arrays.toString(data));
+
+            Vector<PlayerData> playerArray = PlayerData.fromBytes(data, playerNumber);
+            return  playerArray;
         } catch (Exception e) {
-            System.out.println();
+            System.out.println(e);
         }
+        return  null;
     }
     public boolean getStartGame() {
         return true;

@@ -43,6 +43,7 @@ public class GameController {
     @FXML
     private TextFlow leaderBoard;
 
+
     private Stage stage;
     private Scene scene;
     private Parent root;
