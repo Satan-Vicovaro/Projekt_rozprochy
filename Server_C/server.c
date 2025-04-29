@@ -8,6 +8,7 @@
 #include <netdb.h>
 #include <sys/select.h>
 
+
 #define PORT 8080
 #define BUFFER_SIZE 1024
 
@@ -55,12 +56,13 @@ typedef struct thread_task_t {
 
 typedef struct client_listener_t client_listener_t;
 
-typedef struct client_listener_t {
-    pthread_mutex_t *lock;
+typedef struct client_listener_t { 
     player_data_t player;
-    thread_task_t *task;
-    thread_task_queue_t ;
-    client_listener_t *thread_arr_ref;
+    pthread_mutex_t *lock;    
+    task_queue_t queue;
+    
+    task_manager_t* task_manager_ref;
+    client_listener_t* thread_arr_ref;
     int *cur_player_num;
 
     int client_fd;
@@ -85,31 +87,40 @@ typedef struct server_t {
     int addrlen;    
 }server_t;
 
-//typedef enum task_type {
-//    update_board,
-//    update_score,
-//    update_lines
-//} task_type;
-
 bool start_game = false;
 
 typedef struct task_manager_t{
     task_queue_t *task_queue_array;
     int curent_size;
     int max_size;
+    pthread_mutex_t *queue_lock;
 }task_manager_t;
 
-thread_task_t pop_task_from_queue(task_queue_t* queue ) {
+thread_task_t pop_task_from_queue(task_queue_t* queue, pthread_mutex_t* queue_lock ) {
+    thread_task_t return_value;
+    if(queue->current_size <0) {
+        printf("queue is empty\n");
+        return_value.data = NULL;
+        return return_value;
+    }
 
+    pthread_mutex_lock(queue_lock);
+    return_value = queue->array[queue->current_size - 1];
+    queue->current_size--;
+    pthread_mutex_unlock(queue_lock);
+
+    return return_value;
 }
 
-// TODO: make it thread safe
-int add_task_to_queue(thread_task_t task, task_queue_t* queue) {
+int add_task_to_queue(thread_task_t task, task_queue_t* queue, pthread_mutex_t* queue_lock) {
+    //critical section
+    pthread_mutex_lock(queue_lock);
     if(queue->current_size >= MAX_QUEUE_SIZE) {
         return 1;
     }
     queue->array[queue->current_size] = task;
     queue->current_size++;
+    pthread_mutex_unlock(queue_lock);
 }
 
 void send_task_to_all(int sender_index, thread_task_t task, task_manager_t* t_m) {
@@ -117,45 +128,50 @@ void send_task_to_all(int sender_index, thread_task_t task, task_manager_t* t_m)
         if (i == sender_index) {
          continue;
         }
-        if(add_task_to_queue(task, &(t_m->task_queue_array[i]))) {
+        if(add_task_to_queue(task, &(t_m->task_queue_array[i]), t_m->queue_lock)) {
             printf("could not add task to queue\n");
         }
     }
 }
 
-void send_task_to_one(int sender_index, int reciever_index,thread_task_t task,task_manager_t* t_m) {
-    if(reciever_index < 0 || reciever_index >= t_m->curent_size) {
-        printf("wrong reciever index\n");
+void send_task_to_one(int sender_index, int receiver_index, thread_task_t task,task_manager_t* t_m) {
+    if(receiver_index < 0 || receiver_index >= t_m->curent_size) {
+        printf("wrong receiver index\n");
         return;        
     }
     if(sender_index < 0 || sender_index >= t_m->curent_size) {
         printf("wrong sender index\n");
         return;        
     }
-    if(add_task_to_queue(task, &(t_m->task_queue_array[reciever_index]))) {
+    
+    if(add_task_to_queue(task, &(t_m->task_queue_array[receiver_index]), t_m->queue_lock)) {
         printf("could not add task to queue\n");
     }
+}
+
+void add_queue_to_task_manager(task_manager_t* t_m,task_queue_t* thread_queue ) {
     
+    if(t_m->curent_size >= t_m->max_size) {
+        printf("task manager queue is full\n");
+        return;
+    }
+    t_m->task_queue_array[t_m->curent_size - 1] = *thread_queue;
+    t_m->curent_size++;
 }
 
 void init_task_manager(task_manager_t* t_m) {
     t_m->max_size = MAX_PLAYER_COUNT;
     t_m->curent_size = 0;
     t_m->task_queue_array = (task_queue_t*)malloc(sizeof(task_queue_t)*MAX_PLAYER_COUNT);
-}
-void add_queue_to_task_manager(task_manager_t* t_m,task_queue_t* thread_queue ) {
-    if(t_m->curent_size >= t_m->max_size) {
-        printf("task manager queue is full\n");
-        return;
-    }
-
-    t_m->task_queue_array[t_m->curent_size - 1] = *thread_queue;
-    t_m->curent_size++;
+    pthread_mutex_init(t_m->queue_lock,NULL);
 }
 
 
 void handle_server_tasks(client_listener_t *l) {
-    
+
+   //do {
+   //    thread_task_t task = pop_task_from_queue();
+   //} while();
 }
 
 void handle_player_tasks(client_listener_t *l) {
@@ -184,7 +200,7 @@ void handle_player_tasks(client_listener_t *l) {
         thread_task_t task;
         task.task = update_board;
         task.data = &(l->player);
-        
+
         /* code */
         break;
     case update_score:
@@ -200,6 +216,7 @@ void handle_player_tasks(client_listener_t *l) {
         break;
     }
 }
+
 void main_thread_loop(client_listener_t *l) {
     
     //setting up breaking from read() funtion
@@ -254,7 +271,7 @@ void connect_to_lobby(client_listener_t *l) {
 void* client_listener(void* arg) {
 
     client_listener_t* listener = (client_listener_t*) arg;
-    printf("I sarted working %c \n", listener->player.player);
+    printf("I started working %c \n", listener->player.player);
 
     connect_to_lobby(listener);
 
@@ -343,7 +360,7 @@ void listen_for_connections(server_t* s) {
     }
 }
 
-void init_player_data_at_server(server_t* s) {
+void init_player_data_at_server(server_t* s, task_manager_t* task_manager) {
 
     char ***player_boards;
 
@@ -370,7 +387,10 @@ void init_player_data_at_server(server_t* s) {
         player_listener_array[i].thread_arr_ref = player_listener_array;
         player_listener_array[i].my_index = i;
         player_listener_array[i].cur_player_num = &(s->player_num);
-        
+        player_listener_array[i].task_manager_ref = task_manager;
+
+        add_queue_to_task_manager(task_manager, &(player_listener_array[i].queue));
+
         player_listener_array[i].player.board = player_boards[i]; 
         player_listener_array[i].player.player = (char)('A' + i); 
         player_listener_array[i].player.is_ready = false;
@@ -380,6 +400,7 @@ void init_player_data_at_server(server_t* s) {
         player_listener_array[i].player.score.score = 0;
     }
     s->thread_array = player_listener_array;
+
 }
 
 void start_server(server_t* s) {
@@ -422,7 +443,11 @@ int main() {
     server_t server;
 
     start_server(&server);
-    init_player_data_at_server(&server);
+    
+    task_manager_t task_manager;
+    init_task_manager(&task_manager);
+    
+    init_player_data_at_server(&server, &task_manager);
     listen_for_connections(&server);
  
     // Clean up
