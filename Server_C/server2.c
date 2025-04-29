@@ -11,7 +11,7 @@
 #define NDEBUG
 #include <assert.h>
 #include <termios.h> // termial informaion
-#include <fcntl.h> // for non blocking terminal
+#include <fcntl.h> // for non blocking flags
 
 
 #define PORT 8080
@@ -24,11 +24,11 @@
 #define MAX_QUEUE_SIZE 64
 
 typedef enum player_status {
-    joining_lobby,
-    ready,
-    not_ready,
-    playing,
-    lost,
+    joining_lobby_s,
+    ready_s,
+    not_ready_s,
+    playing_s,
+    lost_s,
 } player_status;
 
 typedef struct score_t {
@@ -95,11 +95,11 @@ typedef struct server_t {
 } server_t;
 
 typedef enum message_type {
-    not_ok = (char) 0,
-    ok = (char) 1,
-    player_ready = (char) 2,
-    player_not_ready = (char) 3,
-    get_other_players = (char) 4,
+    not_ok_m = (char) 0,
+    ok_m = (char) 1,
+    player_ready_m = (char) 2,
+    player_not_ready_m = (char) 3,
+    get_other_players_m = (char) 4,
 }message_type;
 
 bool start_game = false;
@@ -158,19 +158,19 @@ int lobby_loop(thread_listener_t* l) {
         }
         switch (buffer[0])
         {
-        case player_ready:
+        case player_ready_m:
             printf("player: %c is ready\n", l->player_data.player_mark);
-            l->player_data.status = ready;
-            message_type type1 = ok;
+            l->player_data.status = ready_s;
+            message_type type1 = ok_m;
             send(l->client_fd,&type1,1,0);
             break; 
-        case player_not_ready: 
+        case player_not_ready_m: 
             printf("player: %c is not ready\n", l->player_data.player_mark);
-            l->player_data.status = not_ready;
-            message_type type2 = ok;
+            l->player_data.status = not_ready_s;
+            message_type type2 = ok_m;
             send(l->client_fd,&type2,1,0);
             break;
-        case get_other_players:
+        case get_other_players_m:
             printf("player: %c want other players\n", l->player_data.player_mark);
             send_other_players_score(l);
             break; 
@@ -179,7 +179,6 @@ int lobby_loop(thread_listener_t* l) {
             break;
         }
     }
-
     free(buffer);
 }
 
@@ -207,7 +206,7 @@ void connect_to_lobby(thread_listener_t* l) {
 
         printf("Sent to player its sign: %c\n", l->player_data.player_mark);
         player_in_lobby = true;
-        l->player_data.status = not_ready;
+        l->player_data.status = not_ready_s;
     };
 }
 
@@ -221,37 +220,93 @@ void* client_listener(void* arg) {
     lobby_loop(listener);
 }
 
+int connection_wait(server_t* s, int* cur_player_count) {
+    
+    fd_set readfds;
+    FD_ZERO(&readfds);
+    FD_SET(s->server_fd, &readfds);
+
+    struct timeval timeout = {3,0}; // 3.0 seconds timeout
+
+    int ready = select(s->server_fd +1,&readfds,NULL, NULL, &timeout);    
+
+    if(ready < 0) {
+        perror("select error");
+        return -1;
+    }else if(ready == 0) {
+        //timeout occured
+        return 0;
+    }
+
+    int client_fd = 0;
+    // waiting for connection
+    if ((client_fd = accept(s->server_fd, (struct sockaddr*)& (s->address),(socklen_t*)& (s->address_len))) < 0) { 
+        perror("accept failed");
+        close(s->server_fd);
+        exit(EXIT_FAILURE);
+    }
+    printf("Player accepted\n");
+    
+    s->threads[*cur_player_count].client_fd = client_fd;
+
+    pthread_create(&(s->thread_handles[*cur_player_count]),NULL,client_listener, &(s->threads[*cur_player_count]));        
+    (*cur_player_count)++;
+    s->cur_player_num = *cur_player_count;
+    s->handler.current_player_num = *cur_player_count;
+
+    return 1;
+}
+
+bool all_players_ready(server_t* s) {
+    if(s->cur_player_num == 0) {
+        return false;
+    }
+
+    for(int i =0; i < s->cur_player_num; i++) {
+        if(s->threads[i].player_data.status != ready_s) {
+            return false;        
+        }
+    }
+    return true;
+}
+
+bool keyboard_shutdown() {
+
+    //looking for keyboard interrupt
+    char ch = 0; 
+    int result = read(STDERR_FILENO,&ch,1);
+    if (result > 0) {
+        if(ch=='u'){
+            printf("closing server\n");
+            return true;
+        }
+    } 
+    return false;
+}
+
 void listen_for_connections(server_t* s) {
    
+    //setting up non blocking accept clients
+    int flags = fcntl(s->server_fd,F_GETFL,0); //file descriptior settings F_GETFL = get current flags
+    fcntl(s->server_fd,F_SETFL,flags | O_NONBLOCK);
+
     printf("Waiting for players to join\n");
     int cur_player_count = 0;
     while (cur_player_count < MAX_PLAYER_NUMBER) { // waiting players to connect 
-        //looking for keyboard interrupt
-        char ch = 0; 
-        int result = read(STDERR_FILENO,&ch,1);
-        if (result > 0) {
-            if(ch=='u'){
-                printf("closing server\n");
-                break;
-            }
+        if(keyboard_shutdown()) {
+            break;
         }
-        
 
-        int client_fd = 0;
-        // waiting for connection
-        if ((client_fd = accept(s->server_fd, (struct sockaddr*)& (s->address),(socklen_t*)& (s->address_len))) < 0) { 
-            perror("accept failed");
-            close(s->server_fd);
-            exit(EXIT_FAILURE);
+        if(connection_wait(s, &cur_player_count)== - 1) {
+            break;  
         }
-        printf("Player accepted\n");
-        
-        s->threads[cur_player_count].client_fd = client_fd;
 
-        pthread_create(&(s->thread_handles[cur_player_count]),NULL,client_listener, &(s->threads[cur_player_count]));        
-        cur_player_count++;
-        s->cur_player_num = cur_player_count;
-        s->handler.current_player_num = cur_player_count;
+        // check if all lobby players are ready
+        if(all_players_ready(s)) {
+            printf("all players are ready!\n");
+            start_game = true;
+            break;
+        }        
     }
 }
 void init_player_data(server_t* s) {
@@ -302,7 +357,7 @@ void init_player_data(server_t* s) {
         score.game_state = 0.0;
         score.lines_scored = 0;
 
-        player_status status = joining_lobby;
+        player_status status = joining_lobby_s;
 
         player_t player_data;
         player_data.board = player_boards[i];
@@ -353,6 +408,8 @@ void init_server(server_t* s) {
     char *IPbuffer = inet_ntoa(*((struct in_addr*) host_entry->h_addr_list[0]));
 
     printf("Server IP: %s\n", IPbuffer); 
+
+    s->cur_player_num = 0;
 }
 
 // Set terminal to non-canonical, non-blocking mode
