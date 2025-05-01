@@ -223,7 +223,7 @@ void main_thread_loop(client_listener_t *l) {
     struct timeval timeout = {5,0}; //5.0 second timeout
     fd_set read_fds;
     FD_ZERO(&read_fds);
-    FD_SET(l->client_fd,&read_fds); // add client)fd to select
+    FD_SET(l->client_fd,&read_fds); // add client_fd to select
 
     while (true) {        
         int ret = select(l->client_fd + 1, &read_fds,NULL,NULL,&timeout); // waits timeout's seconds for input
@@ -345,7 +345,7 @@ void listen_for_connections(server_t* s) {
         int client_fd = 0;
         
         // waiting for connection
-        if ((client_fd = accept(s->server_fd, (struct sockaddr*)&(s->address),(socklen_t*)& (s->addrlen))) < 0) { 
+        if ((client_fd = accept(s->server_fd, (struct sockaddr*)&(s->address),(socklen_t*)& (s->    ))) < 0) { 
             perror("accept failed");
             close(s->server_fd);
             exit(EXIT_FAILURE);

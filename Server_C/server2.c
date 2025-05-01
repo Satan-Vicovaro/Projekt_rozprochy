@@ -23,10 +23,10 @@
 #define MAX_PLAYER_NUMBER 16
 #define MAX_QUEUE_SIZE 64
 
-typedef enum player_status {
-    joining_lobby_s,
-    ready_s,
+typedef enum player_status { 
     not_ready_s,
+    ready_s,
+    joining_lobby_s,
     playing_s,
     lost_s,
 } player_status;
@@ -53,15 +53,16 @@ typedef struct exchange_information_handler_t{
 
 
 typedef enum task_type {
-    send_score,
-    send_updated_board,
-    send_lines
+    send_score_task,
+    send_updated_board_task,
+    send_lines_task
 } task_type;
 
 typedef struct thread_task_t {
     task_type type;
     void* data; // pointer to corresponding data from task_type
     pthread_mutex_t* that_thread_lock;
+    char player_mark;
 } thread_task_t;
 
 typedef struct task_queue_t {
@@ -100,9 +101,137 @@ typedef enum message_type {
     player_ready_m = (char) 2,
     player_not_ready_m = (char) 3,
     get_other_players_m = (char) 4,
+    update_board_m = (char) 5,
+    update_score_m = (char) 6,
+    send_lines_to_enemy = (char) 7,
+    start_game_m = (char) 8,
 }message_type;
 
 bool start_game = false;
+bool global_game_over = false;
+
+void send_to_all_besides_me(exchange_information_handler_t* h, int my_index, thread_task_t new_task) {
+    for(int i = 0; i < h->current_player_num; i++) {
+        if(i==my_index) {
+            //skipping ourselves
+            continue;
+        }
+        
+        thread_listener_t* thread = &(h->thread_arr[i]);
+        pthread_mutex_t* lock  = &(thread->my_lock);     
+        
+        pthread_mutex_lock(lock);
+        int size = ++(thread->my_queue.current_size);
+        thread->my_queue.array[size] = new_task;
+        pthread_mutex_unlock(lock);
+    }
+}
+
+void update_board(thread_listener_t* l, char buffer[BUFFER_SIZE]) {
+    // updating local board
+    pthread_mutex_lock(&(l->my_lock));
+    for(int y = 0; y<BOARD_SIZE_Y; y++) {
+        memcpy(l->player_data.board[y],buffer + 1 + y *BOARD_SIZE_X, BOARD_SIZE_X);
+    }
+    pthread_mutex_unlock(&(l->my_lock));
+    
+    thread_task_t new_task;
+    new_task.type = send_updated_board_task;
+    new_task.data = l->player_data.board;
+    new_task.player_mark = l->player_data.player_mark;
+    new_task.that_thread_lock = &(l->my_lock);
+
+    send_to_all_besides_me(l->handler,l->my_player_index,new_task);
+}
+
+void manage_player_messages(thread_listener_t* l) {
+    char buffer[BUFFER_SIZE] = {0};
+    int bytes_read = read(l->client_fd,buffer, BUFFER_SIZE);
+
+    switch (buffer[0])
+    {
+    case update_board_m:
+        update_board(l,buffer);   
+        printf("board updated!\n");     
+        /* code */
+        break;
+    
+    default:
+    printf("got massage but its wrong\n");
+        break;
+    }
+}
+
+void send_board(thread_listener_t*l, thread_task_t task) {
+
+    char** board =(char**) task.data;
+
+    // sending players mark and updated board
+    char buffer[BUFFER_SIZE] = {0};
+    pthread_mutex_lock(task.that_thread_lock);
+    for(int y = 0; y < BOARD_SIZE_Y ; y++) {
+        memcpy(buffer + 1 + y * BOARD_SIZE_X, board[y], BOARD_SIZE_X);
+    }
+    pthread_mutex_unlock(task.that_thread_lock);
+
+    buffer[0] = task.player_mark;
+    send(l->client_fd,buffer,BOARD_SIZE_X * BOARD_SIZE_Y + 1,0);
+}
+
+void manage_queue_tasks(thread_listener_t* l) {
+    
+    while(l->my_queue.current_size != 0) {
+        int index = l->my_queue.current_size - 1;
+
+        // safely removes data from queue
+        pthread_mutex_lock(&(l->my_lock));
+        thread_task_t task_copy = l->my_queue.array[index];
+        l->my_queue.current_size--;
+        pthread_mutex_unlock(&(l->my_lock));
+
+        // decoding task
+        switch (task_copy.type)
+        {
+        case send_score_task:
+            printf("TODO implement send score task \n");        
+            break;    
+        case send_updated_board_task:
+            send_board(l,task_copy);
+            break;
+        case send_lines_task:
+            printf("TODO implement send_lines_task\n");
+            break;
+        default:
+            printf("Wrong task sent: %c \n",l->player_data.player_mark);
+            break;
+        }
+    }
+}
+
+int main_loop(thread_listener_t* l) {
+
+    fd_set readfds;
+    FD_ZERO(&readfds);
+    FD_SET(l->client_fd, &readfds);
+    printf("%c: in main loop\n", l->player_data.player_mark);
+    while(!global_game_over) {
+        struct timeval timeout = {1,500}; // 0.5 seconds timeout
+        int ready = select(l->client_fd + 1, &readfds, NULL, NULL, &timeout);    
+
+        if(ready < 0) {
+            perror("select error");
+            return -1;
+        }else if(ready == 0) {
+            // timeout occured we check the queue tasks;
+            //printf("time out\n");
+            manage_queue_tasks(l);
+        } else{
+            // we got message from player
+            manage_player_messages(l);
+        }
+    }
+    return 0;
+}
 
 score_t* get_other_player_score(int my_index, exchange_information_handler_t* h,char player_signs[MAX_PLAYER_NUMBER]) {
     score_t* result = (score_t*) malloc(sizeof(score_t) * h->current_player_num);
@@ -114,6 +243,14 @@ score_t* get_other_player_score(int my_index, exchange_information_handler_t* h,
     return result;
 } 
 
+player_status* get_other_player_status(int my_index, exchange_information_handler_t* h) { 
+    player_status* result = (player_status*) malloc(sizeof(player_status) * h->current_player_num);
+    for(int i = 0; i < h->current_player_num; i++) {
+        result[i] = h->thread_arr[i].player_data.status;
+    }
+    return result;
+}
+
 
 int send_other_players_score(thread_listener_t* l) {
     
@@ -122,6 +259,7 @@ int send_other_players_score(thread_listener_t* l) {
     assert(sizeof(l->player_data.score.game_state) == sizeof(float));
     assert(sizeof(l->player_data.score.lines_scored) == sizeof(int));
     assert(sizeof(l->handler->current_player_num) == sizeof(char));
+    assert(sizeof(l->player_data.status) == sizeof(player_status));
     
     // send order in binary:
     // first bytes:(int)bytes_to_read (char) player_num 
@@ -129,22 +267,27 @@ int send_other_players_score(thread_listener_t* l) {
     
     char player_signs[MAX_PLAYER_NUMBER] = {0};
     score_t* scores = get_other_player_score(l->my_player_index, l->handler, player_signs);
-    
+
+    player_status* statuses = get_other_player_status(l->my_player_index, l->handler);
+
     char buffer[BUFFER_SIZE] = {0};
     
-    int start_offset = sizeof(int) + sizeof(char);
+    int start_offset = sizeof(int) + sizeof(char); // reserving 5 bytes for bytes_to_read and player_num
 
     for(int i = 0 ;i < l->handler->current_player_num; i++) { 
         buffer[start_offset] = player_signs[i];
         start_offset++;
         memcpy(buffer + start_offset, &scores[i], sizeof(score_t));
         start_offset += sizeof(score_t);
+        memcpy(buffer + start_offset, &statuses[i],sizeof(player_status));
+        start_offset += sizeof(player_status);
     }
     
     memcpy(buffer, &start_offset, sizeof(int)); // start_offset is also a size of message
     buffer[sizeof(int)] =  l->handler->current_player_num;
     send(l->client_fd, buffer,start_offset,0);
     free(scores);
+    free(statuses);
 }
 
 int lobby_loop(thread_listener_t* l) {
@@ -153,7 +296,8 @@ int lobby_loop(thread_listener_t* l) {
 
     while(!start_game) {
         int bytes_read = read(l->client_fd, buffer, BUFFER_SIZE);
-        if (bytes_read <= 0) {       
+        if (bytes_read <= 0) {   
+            printf("lobby_loop read error");    
             return -1;
         }
         switch (buffer[0])
@@ -180,6 +324,7 @@ int lobby_loop(thread_listener_t* l) {
         }
     }
     free(buffer);
+    return 0;
 }
 
 void connect_to_lobby(thread_listener_t* l) {
@@ -217,7 +362,13 @@ void* client_listener(void* arg) {
     
     connect_to_lobby(listener);
 
-    lobby_loop(listener);
+    if(lobby_loop(listener) == -1) {
+        return NULL;
+    }
+    char start_game = start_game_m;
+    send(listener->client_fd,&start_game,sizeof(char),0);
+    main_loop(listener);
+
 }
 
 int connection_wait(server_t* s, int* cur_player_count) {
@@ -302,11 +453,11 @@ void listen_for_connections(server_t* s) {
         }
 
         // check if all lobby players are ready
-        if(all_players_ready(s)) {
-            printf("all players are ready!\n");
-            start_game = true;
-            break;
-        }        
+       // if(all_players_ready(s)) {
+       //     printf("all players are ready!\n");
+       //     start_game = true;
+       //     break;
+       // }        
     }
 }
 void init_player_data(server_t* s) {
@@ -435,6 +586,22 @@ void reset_input_mode() {
     tcsetattr(STDIN_FILENO, TCSANOW, &ttystate);
 }
 
+void main_game_loop(server_t* s) {
+    
+    printf("Main: main game loop \n");
+    while(true) {
+
+        for(int i = 0; i < s->cur_player_num; i++) {
+            sleep(1);
+            if(s->threads[i].player_data.status != lost_s) {
+                continue;
+            }
+        }
+        //break;
+    }
+    
+}
+
 int main(){
     set_nonblocking_input();
     
@@ -442,6 +609,8 @@ int main(){
     init_server(&server);
     init_player_data(&server);
     listen_for_connections(&server);
+
+    main_game_loop(&server);
 
     close(server.server_fd);
     reset_input_mode();
