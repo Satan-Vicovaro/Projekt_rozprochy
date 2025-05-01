@@ -145,12 +145,11 @@ public class UiManager {
 
             for (int y = 0; y<sizeY; y++) {
                 for (int x = 0; x < sizeX; x++) {
-                    if (tileBoards[y][x].color == 'X') {
-                        enemyVisualBoard[y][x].setFill(Color.RED);
+                    if (tileBoards[y][x].color != ' ') {
+                        enemyVisualBoard[y][x].setFill(tileBoards[y][x].getColor());
+                        continue;
                     }
-                    else {
                         enemyVisualBoard[y][x].setFill(Color.WHITE);
-                    }
                 }
             }
         }

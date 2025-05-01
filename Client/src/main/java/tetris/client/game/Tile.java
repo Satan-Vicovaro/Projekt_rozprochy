@@ -1,10 +1,54 @@
 package tetris.client.game;
 
+import javafx.scene.paint.Color;
+
 public class Tile {
     public char color;
 
     public Tile(Vector2d position) {
         this.color = ' ';
+    }
+    public Color getColor() {
+        switch (color) {
+            case 'A':
+                return Color.RED;
+            case 'B':
+                return Color.BLUE;
+            case 'C':
+                return Color.AQUA;
+            case 'D':
+                return Color.CYAN;
+            case 'E':
+                return Color.DARKMAGENTA;
+            case 'F':
+                return Color.FORESTGREEN;
+            case 'G':
+                return Color.KHAKI;
+            case 'H':
+                return Color.YELLOWGREEN;
+            case 'I':
+                return Color.YELLOW;
+            case 'J':
+                return Color.LIGHTCORAL;
+            case 'K':
+                return Color.DARKRED;
+            case 'L':
+                return Color.CADETBLUE;
+            case 'M':
+                return Color.DARKGREEN;
+            case 'N':
+                return Color.DARKGRAY;
+            case 'O':
+                return Color.DARKSALMON;
+            case 'P':
+                return Color.FUCHSIA;
+            case 'R':
+                return Color.GOLDENROD;
+            case ' ':
+                return Color.WHITE;
+            default:
+                return Color.ORANGE;
+        }
     }
 
     public static Byte[] tileArrayToBytes(Tile[] array) {

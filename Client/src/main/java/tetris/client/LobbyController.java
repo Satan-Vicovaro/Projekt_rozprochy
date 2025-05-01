@@ -8,6 +8,8 @@ import javafx.fxml.FXMLLoader;
 import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
+import javafx.scene.control.Button;
+import javafx.scene.control.TextField;
 import javafx.scene.layout.AnchorPane;
 import javafx.scene.text.Font;
 import javafx.scene.text.Text;
@@ -17,10 +19,12 @@ import javafx.event.ActionEvent;
 import javafx.util.Duration;
 import tetris.client.game.PlayerData;
 import tetris.client.game.TetrisGame;
+import tetris.client.serverRequests.MessageType;
 import tetris.client.serverRequests.ServerListener;
 import tetris.client.ui.UiManager;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Vector;
 
 public class LobbyController {
@@ -35,8 +39,16 @@ public class LobbyController {
     private TextFlow playerTable;
 
     private Timeline timeline;
+
+    private  Timeline leaderBoardRefresh;
     @FXML
     private TextFlow lobbyPlayerText;
+
+    @FXML
+    private TextField serverAddresTextField;
+
+    @FXML
+    private Button connectToServerButton;
 
     @FXML
     private void initialize() {
@@ -47,19 +59,34 @@ public class LobbyController {
         //this.listener = new ServerListener("local host",8080);
         this.playerIsReady = false;
 
-        Timeline timeline = new Timeline(new KeyFrame(Duration.seconds(5), e -> {
+        Timeline timeline = new Timeline(new KeyFrame(Duration.seconds(1), e -> {
             pullForPlayerData();
         }));
         timeline.setCycleCount(Animation.INDEFINITE);
         timeline.play();
 
+        Timeline leaderBoardRefresh = new Timeline(new KeyFrame(Duration.millis(500), e -> {
+            lobbyBoardRefresh();
+        }));
+
+        leaderBoardRefresh.setCycleCount(Animation.INDEFINITE);
+        leaderBoardRefresh.play();
+
+        this.leaderBoardRefresh = leaderBoardRefresh;
         this.timeline = timeline;
         this.connectedToServer = false;
     }
 
     private void pullForPlayerData() {
         if(connectedToServer) {
-            Vector<PlayerData> lobbyList =  listener.getOtherLobbyPlayers();
+            listener.sendMessage(MessageType.GET_OTHER_PLAYERS);
+            ArrayList<PlayerData> lobbyList = listener.getOtherLobbyPlayersData();
+            updateLobbyList(lobbyList);
+        }
+    }
+    private void lobbyBoardRefresh() {
+        if(connectedToServer) {
+            ArrayList<PlayerData> lobbyList = listener.getOtherLobbyPlayersData();
             updateLobbyList(lobbyList);
         }
     }
@@ -73,40 +100,50 @@ public class LobbyController {
         stage.setTitle("Lobby");
         stage.setScene(scene);
         stage.show();
-
     }
 
-    public void updateLobbyList(Vector<PlayerData> lobbyList) {
+    public void updateLobbyList(ArrayList<PlayerData> lobbyList) {
         this.lobbyPlayerText.getChildren().clear(); // resetting lobby text
         for(PlayerData player : lobbyList) {
-            Text text = new Text(player.toString());
+            Text text = new Text(player.toStringLobby());
             text.setFont(new Font(18));
             this.lobbyPlayerText.getChildren().add(text);
         }
         this.lobbyPlayerText.requestLayout();
     }
 
+    //button function
     public void playerIsReady(ActionEvent event) {
-        if (listener.isPlayerReady()) {
-            listener.sendPlayerIsNotReady();
+        if (!listener.isPlayerReady()) {
+            listener.sendMessage(MessageType.PLAYER_READY);
         }else {
-            listener.sendPlayerIsReady();
+            listener.sendMessage(MessageType.PLAYER_NOT_READY);
         }
-        Vector<PlayerData> lobbyList =  listener.getOtherLobbyPlayers();
-        updateLobbyList(lobbyList);
     }
-
+    //button function
     public void connectToServer() {
-        this.listener = new ServerListener("127.0.0.1",8080);
-        this.listener.start();
-        this.connectedToServer = true;
+        if(connectedToServer) {
+            return;
+        }
+        String hostAddress = this.serverAddresTextField.getText();
+        try {
+            this.listener = new ServerListener(hostAddress,8080);// "127.0.0.1"
+            this.listener.start();
+            this.connectToServerButton.setText("Connected");
+            this.connectedToServer = true;
+            this.listener.sendMessage(MessageType.GET_OTHER_PLAYERS);
+        } catch (Exception e) {
+                this.connectToServerButton.setText("Couldn't connect");
+                this.connectToServerButton.setFont(new Font(12));
+        }
     }
 
+    //button function
     public void switchToGame(ActionEvent event) throws IOException {
 
-//        if (!listener.getStartGame()) {
-//            return;
-//        }
+        if (!listener.getStartGame()) {
+            return;
+        }
         this.fxmlLoader = new FXMLLoader(getClass().getResource("game-view.fxml"));
         //Parent root = FXMLLoader.load(getClass().getResource("game-view.fxml"));
         Parent root = fxmlLoader.load();
@@ -124,7 +161,7 @@ public class LobbyController {
         TetrisGame game = new TetrisGame(10,20,manager, listener);
 
         timeline.stop();
-
+        leaderBoardRefresh.stop();
         game.init();
         game.start();
     }

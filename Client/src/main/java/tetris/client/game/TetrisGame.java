@@ -1,6 +1,7 @@
 package tetris.client.game;
 
 import javafx.animation.AnimationTimer;
+import tetris.client.serverRequests.MessageType;
 import tetris.client.serverRequests.ServerListener;
 import tetris.client.ui.UiManager;
 
@@ -89,13 +90,13 @@ public class TetrisGame {
         if(positionChanged) {
             System.out.println("Updating position");
             if(listener != null)
-                listener.sendPlayerBoard(board);
+                listener.sendMessage(MessageType.UPDATE_BOARD);
             positionChanged = false;
         }
         if(scoreChanged) {
             System.out.println("Updating score");
             if(listener != null)
-                listener.sendPlayerIsReady();
+                listener.sendMessage(MessageType.UPDATE_SCORE);
             scoreChanged = false;
         }
     }
@@ -182,7 +183,7 @@ public class TetrisGame {
         this.fallingSpeed = new Vector2d(0,1F);
         this.totalLinesCleared = 0;
         this.score = 0;
-        this.playerData = new PlayerData('X',score,totalLinesCleared,speedState);
+        this.playerData = new PlayerData(listener.getPlayerMark(), score,totalLinesCleared,speedState);
         this.manager.addPlayerData(playerData);
         this.listener = listener;
     }
