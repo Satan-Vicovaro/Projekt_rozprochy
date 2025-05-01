@@ -1,7 +1,9 @@
 package tetris.client.game;
 
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.Random;
+import java.util.Vector;
 
 import static java.lang.Math.abs;
 
@@ -20,6 +22,19 @@ public class GameBoard {
         }
         this.sizeX = sizeX;
         this.sizeY = sizeY;
+    }
+
+    public Vector<Byte> getByteBoardArray() {
+
+        Iterator<Tile[]> iterator = this.rowIterator();
+        Vector<Byte> result = new Vector<>();
+        while(iterator.hasNext()) {
+            Tile[] line = iterator.next();
+            Byte[] byteLine = Tile.tileArrayToBytes(line);
+
+            result.addAll(Arrays.asList(byteLine));
+        }
+        return result;
     }
 
     public void printBoard() {

@@ -121,7 +121,9 @@ public class LobbyController {
 
     public void initGame(Parent root) throws IOException {
         UiManager manager = new UiManager((AnchorPane) root, stage, fxmlLoader,10,20);
-        TetrisGame game = new TetrisGame(10,20,manager);
+        TetrisGame game = new TetrisGame(10,20,manager, listener);
+
+        timeline.stop();
 
         game.init();
         game.start();

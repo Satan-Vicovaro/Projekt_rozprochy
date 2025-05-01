@@ -1,5 +1,6 @@
 package tetris.client.serverRequests;
 
+import tetris.client.game.GameBoard;
 import tetris.client.game.PlayerData;
 
 import java.io.IOException;
@@ -120,6 +121,25 @@ public class ServerListener extends Thread {
 
     public void sendPlayerLost() {
 
+    }
+
+    public void sendPlayerBoard(GameBoard board) {
+        Vector<Byte> arrayVector =board.getByteBoardArray();
+
+        byte[] byteArray = new byte[arrayVector.size() + 1];
+        for (int i = 1; i < arrayVector.size()+1; i++) {
+            byteArray[i] = arrayVector.get(i-1);
+        }
+        byteArray[0] = 5; // 5 = update_board_m
+        try {
+            this.outStream.write(byteArray);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public void sendScore(PlayerData data) {
+        System.out.println("TODO sendScore");
     }
 
     public void getLeaderBoard() {

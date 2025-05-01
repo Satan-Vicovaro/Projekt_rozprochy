@@ -1,6 +1,7 @@
 package tetris.client.game;
 
 import javafx.animation.AnimationTimer;
+import tetris.client.serverRequests.ServerListener;
 import tetris.client.ui.UiManager;
 
 import java.util.ArrayList;
@@ -20,7 +21,12 @@ public class TetrisGame {
 
     PlayerData playerData;
 
+    ServerListener listener;
+
     boolean gameOver = false;
+    boolean positionChanged = false;
+    boolean scoreChanged = false;
+
 
     final int MAX_SPEED_STATE = 3;
     AnimationTimer gameLoop = new AnimationTimer() {
@@ -37,7 +43,9 @@ public class TetrisGame {
             currentShape = getNewShape(currentShape);
             handlePlayersInput(currentShape);
 
-            currentShape.applyGravity(deltaTime);
+            if(currentShape.applyGravity(deltaTime)){
+                positionChanged = true;
+            }
             currentShape.makeMoveBorderValid();
 
             if (board.checkPlaceShape(currentShape)) { // placing shape
@@ -47,6 +55,9 @@ public class TetrisGame {
 
             board.addToBoard(currentShape);
             manager.updateBoard(board.getTiles());
+
+            handleSendingData();
+
             ArrayList<Tile[][]> enemiesBoards = new ArrayList<>();
             for(int i =0 ; i<11; i++) {
                 enemiesBoards.add(board.getTiles().clone());
@@ -54,10 +65,7 @@ public class TetrisGame {
             manager.updateEnemiesBoards(enemiesBoards);
             manager.updateScoreBoard();
             playerData.updateData(score,totalLinesCleared,speedState);
-            //manager.updateScore(score,totalLinesCleared,speedState);
-            // send message to other players;
-            //
-            // wait for server answer
+
 
             board.removeFromBoard(currentShape);
         }
@@ -76,11 +84,28 @@ public class TetrisGame {
             }
         }
     };
+
+    public void handleSendingData() {
+        if(positionChanged) {
+            System.out.println("Updating position");
+            if(listener != null)
+                listener.sendPlayerBoard(board);
+            positionChanged = false;
+        }
+        if(scoreChanged) {
+            System.out.println("Updating score");
+            if(listener != null)
+                listener.sendPlayerIsReady();
+            scoreChanged = false;
+        }
+    }
+
     public Tetromino getNewShape(Tetromino currentShape) {
         // get random Tetromino if currently no one is used by player
         if (currentShape == null) {
             currentShape = new Tetromino(new Vector2d((float)(sizeX/2), 0),sizeX,sizeY);
             currentShape.setVelocity(fallingSpeed);
+            positionChanged = true;
         }
         return currentShape;
     }
@@ -108,6 +133,7 @@ public class TetrisGame {
            } else if(input == 'E') {
                currentShape.rotateRight();
            }
+           positionChanged = true;
        }
     }
    public Tetromino handlePlacingBlock(Tetromino currentShape) {
@@ -123,7 +149,7 @@ public class TetrisGame {
            return currentShape;
        }
        totalLinesCleared += clearedLines;
-
+       scoreChanged = true;
        switch (clearedLines) {
            case 1:
                score +=40;
@@ -147,7 +173,7 @@ public class TetrisGame {
        }
        return currentShape;
    }
-    public TetrisGame(int sizeX, int sizeY, UiManager manager) {
+    public TetrisGame(int sizeX, int sizeY, UiManager manager, ServerListener listener) {
         this.sizeX = sizeX;
         this.sizeY = sizeY;
         board = new GameBoard(sizeX,sizeY);
@@ -158,6 +184,7 @@ public class TetrisGame {
         this.score = 0;
         this.playerData = new PlayerData('X',score,totalLinesCleared,speedState);
         this.manager.addPlayerData(playerData);
+        this.listener = listener;
     }
 
     public void init() {

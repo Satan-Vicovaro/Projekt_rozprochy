@@ -163,9 +163,15 @@ public class Tetromino implements Iterable<Vector2d>{
         this.centralPosition.shiftyBy(possibleCorrection);
     }
 
-    public void applyGravity(double deltaTime) {
+    public boolean applyGravity(double deltaTime) {
+        int posBeforeX = (int) centralPosition.x;
+        int posBeforeY = (int) centralPosition.y;
         centralPosition.y += (float) (velocity.y * deltaTime);
         centralPosition.x += (float) (velocity.x * deltaTime);
+
+        if ((int) centralPosition.x != posBeforeX || (int) centralPosition.y != posBeforeY)
+            return  true; // tile position hase changed
+        return false;
     }
 
     public Vector2d[] getLowestPoints() {
