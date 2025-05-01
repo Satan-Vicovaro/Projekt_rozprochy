@@ -1,6 +1,7 @@
 package tetris.client.game;
 
 import javafx.animation.AnimationTimer;
+import tetris.client.serverRequests.ClientTask;
 import tetris.client.serverRequests.MessageType;
 import tetris.client.serverRequests.ServerListener;
 import tetris.client.ui.UiManager;
@@ -59,11 +60,7 @@ public class TetrisGame {
 
             handleSendingData();
 
-            ArrayList<Tile[][]> enemiesBoards = new ArrayList<>();
-            for(int i =0 ; i<11; i++) {
-                enemiesBoards.add(board.getTiles().clone());
-            }
-            manager.updateEnemiesBoards(enemiesBoards);
+            manager.updateEnemiesBoards();
             manager.updateScoreBoard();
             playerData.updateData(score,totalLinesCleared,speedState);
 
@@ -88,15 +85,13 @@ public class TetrisGame {
 
     public void handleSendingData() {
         if(positionChanged) {
-            System.out.println("Updating position");
             if(listener != null)
-                listener.sendMessage(MessageType.UPDATE_BOARD);
+                listener.sendMessage(new ClientTask(MessageType.UPDATE_BOARD,this.board));
             positionChanged = false;
         }
         if(scoreChanged) {
-            System.out.println("Updating score");
             if(listener != null)
-                listener.sendMessage(MessageType.UPDATE_SCORE);
+                listener.sendMessage(new ClientTask(MessageType.UPDATE_SCORE, this.playerData));
             scoreChanged = false;
         }
     }
@@ -190,7 +185,7 @@ public class TetrisGame {
 
     public void init() {
         manager.init();
-        manager.initEnemyBoards(11);
+        manager.initEnemyBoards();
         manager.loadEnemiesGrids();
         manager.updateBoard(board.getTiles());
         manager.run();

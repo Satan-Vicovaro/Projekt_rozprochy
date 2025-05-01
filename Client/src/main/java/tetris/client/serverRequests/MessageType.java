@@ -12,5 +12,4 @@ public enum MessageType {
     START_GAME,
     NOT_A_MESSAGE,
     MESSAGE_TIMEOUT
-
 }

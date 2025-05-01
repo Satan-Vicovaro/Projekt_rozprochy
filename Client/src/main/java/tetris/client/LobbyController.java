@@ -19,6 +19,7 @@ import javafx.event.ActionEvent;
 import javafx.util.Duration;
 import tetris.client.game.PlayerData;
 import tetris.client.game.TetrisGame;
+import tetris.client.serverRequests.ClientTask;
 import tetris.client.serverRequests.MessageType;
 import tetris.client.serverRequests.ServerListener;
 import tetris.client.ui.UiManager;
@@ -79,7 +80,7 @@ public class LobbyController {
 
     private void pullForPlayerData() {
         if(connectedToServer) {
-            listener.sendMessage(MessageType.GET_OTHER_PLAYERS);
+            listener.sendMessage(new ClientTask(MessageType.GET_OTHER_PLAYERS));
             ArrayList<PlayerData> lobbyList = listener.getOtherLobbyPlayersData();
             updateLobbyList(lobbyList);
         }
@@ -115,9 +116,9 @@ public class LobbyController {
     //button function
     public void playerIsReady(ActionEvent event) {
         if (!listener.isPlayerReady()) {
-            listener.sendMessage(MessageType.PLAYER_READY);
+            listener.sendMessage(new ClientTask(MessageType.PLAYER_READY));
         }else {
-            listener.sendMessage(MessageType.PLAYER_NOT_READY);
+            listener.sendMessage(new ClientTask(MessageType.PLAYER_NOT_READY));
         }
     }
     //button function
@@ -131,7 +132,7 @@ public class LobbyController {
             this.listener.start();
             this.connectToServerButton.setText("Connected");
             this.connectedToServer = true;
-            this.listener.sendMessage(MessageType.GET_OTHER_PLAYERS);
+            this.listener.sendMessage(new ClientTask(MessageType.GET_OTHER_PLAYERS));
         } catch (Exception e) {
                 this.connectToServerButton.setText("Couldn't connect");
                 this.connectToServerButton.setFont(new Font(12));
@@ -145,7 +146,7 @@ public class LobbyController {
             return;
         }
         this.fxmlLoader = new FXMLLoader(getClass().getResource("game-view.fxml"));
-        //Parent root = FXMLLoader.load(getClass().getResource("game-view.fxml"));
+
         Parent root = fxmlLoader.load();
 
         stage = (Stage) ((Node)event.getSource()).getScene().getWindow();
@@ -157,7 +158,11 @@ public class LobbyController {
     }
 
     public void initGame(Parent root) throws IOException {
-        UiManager manager = new UiManager((AnchorPane) root, stage, fxmlLoader,10,20);
+        UiManager manager = new UiManager((AnchorPane) root,
+                stage, fxmlLoader,
+                10,20,
+                listener.getCurrentPlayerNumber(),
+                listener.getEnemiesBoards());
         TetrisGame game = new TetrisGame(10,20,manager, listener);
 
         timeline.stop();

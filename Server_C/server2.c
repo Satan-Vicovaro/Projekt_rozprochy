@@ -152,8 +152,7 @@ void manage_player_messages(thread_listener_t* l) {
     {
     case update_board_m:
         update_board(l,buffer);   
-        printf("board updated!\n");     
-        /* code */
+        printf("%c board updated!\n", l->player_data.player_mark);     
         break;
     
     default:
@@ -167,15 +166,19 @@ void send_board(thread_listener_t*l, thread_task_t task) {
     char** board =(char**) task.data;
 
     // sending players mark and updated board
+    // message format:
+    // (char) message_type (char) player_mark char board[20][10] 
+    
     char buffer[BUFFER_SIZE] = {0};
     pthread_mutex_lock(task.that_thread_lock);
     for(int y = 0; y < BOARD_SIZE_Y ; y++) {
-        memcpy(buffer + 1 + y * BOARD_SIZE_X, board[y], BOARD_SIZE_X);
+        memcpy(buffer +2 * sizeof(char) + y * BOARD_SIZE_X, board[y], BOARD_SIZE_X);
     }
     pthread_mutex_unlock(task.that_thread_lock);
 
-    buffer[0] = task.player_mark;
-    send(l->client_fd,buffer,BOARD_SIZE_X * BOARD_SIZE_Y + 1,0);
+    buffer[0] = update_board_m;
+    buffer[1] = task.player_mark;
+    send(l->client_fd,buffer,BOARD_SIZE_X * BOARD_SIZE_Y + 2,0);
 }
 
 void manage_queue_tasks(thread_listener_t* l) {
@@ -215,7 +218,7 @@ int main_loop(thread_listener_t* l) {
     FD_SET(l->client_fd, &readfds);
     printf("%c: in main loop\n", l->player_data.player_mark);
     while(!global_game_over) {
-        struct timeval timeout = {1,500}; // 0.5 seconds timeout
+        struct timeval timeout = {5,500}; // 1.5 seconds timeout
         int ready = select(l->client_fd + 1, &readfds, NULL, NULL, &timeout);    
 
         if(ready < 0) {
@@ -453,11 +456,11 @@ void listen_for_connections(server_t* s) {
         }
 
         // check if all lobby players are ready
-       // if(all_players_ready(s)) {
-       //     printf("all players are ready!\n");
-       //     start_game = true;
-       //     break;
-       // }        
+        if(all_players_ready(s)) {
+            printf("all players are ready!\n");
+            start_game = true;
+            break;
+        }        
     }
 }
 void init_player_data(server_t* s) {

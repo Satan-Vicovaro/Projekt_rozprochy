@@ -8,6 +8,9 @@ public class Tile {
     public Tile(Vector2d position) {
         this.color = ' ';
     }
+    public Tile (char color) {
+        this.color = color;
+    }
     public Color getColor() {
         switch (color) {
             case 'A':
@@ -59,5 +62,15 @@ public class Tile {
             index++;
         }
         return result;
+    }
+
+    public static Tile[][] initBoard(int sizeX,int sizeY) {
+        Tile[][] returnBoard = new Tile[sizeY][sizeX];
+        for(int y = 0; y < sizeY; y++) {
+            for(int x = 0; x < sizeX; x++) {
+                returnBoard[y][x] = new Tile(' ');
+            }
+        }
+        return returnBoard;
     }
 }

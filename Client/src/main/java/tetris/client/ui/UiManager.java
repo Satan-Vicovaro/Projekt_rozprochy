@@ -33,9 +33,11 @@ public class UiManager {
     Rectangle[][] rectArr;
     int sizeY;
     int sizeX;
+    int playerNum;
 
     GridPane enemiesGrid;
-    ArrayList<Rectangle[][]> enemiesBoards;
+    ArrayList<Rectangle[][]> enemiesBoardsRects;
+    ArrayList<Tile[][]> enemiesBoardsRaw;
 
     AtomicReference<Character> symbol = new AtomicReference<>((char) -1);
 
@@ -44,7 +46,7 @@ public class UiManager {
     ArrayList<PlayerData> playerData;
     TextFlow leaderBoard;
 
-    public UiManager(AnchorPane root, Stage stage, FXMLLoader fxmlLoader, int sizeX, int sizeY) {
+    public UiManager(AnchorPane root, Stage stage, FXMLLoader fxmlLoader, int sizeX, int sizeY, int playerNum, ArrayList<Tile[][]> enemiesBoardsRaw) {
         this.root = root;
         this.stage = stage;
         this.stage.setResizable(false);
@@ -59,7 +61,9 @@ public class UiManager {
         this.sizeY = sizeY;
         this.rectArr = new Rectangle[sizeY][sizeX];
 
-        this.enemiesBoards = new ArrayList<>();
+        this.enemiesBoardsRects = new ArrayList<>();
+        this.enemiesBoardsRaw = enemiesBoardsRaw; // reference to obj in ServerListener
+        this.playerNum = playerNum;
         this.leaderBoard = controller.getLeaderBoard();
 
         this.playerData = new ArrayList<>();
@@ -138,10 +142,11 @@ public class UiManager {
         }
     }
 
-    public void updateEnemiesBoards(ArrayList<Tile[][]>enemiesBoards) {
-        for(int i = 0; i <enemiesBoards.size(); i++ ) {
-            Tile[][] tileBoards = enemiesBoards.get(i);
-            Rectangle[][]enemyVisualBoard = this.enemiesBoards.get(i);
+    public void updateEnemiesBoards() {
+
+        for(int i = 0; i <this.enemiesBoardsRaw.size(); i++ ) {
+            Tile[][] tileBoards = this.enemiesBoardsRaw.get(i);
+            Rectangle[][]enemyVisualBoard = this.enemiesBoardsRects.get(i);
 
             for (int y = 0; y<sizeY; y++) {
                 for (int x = 0; x < sizeX; x++) {
@@ -164,18 +169,19 @@ public class UiManager {
         double singleEnemyGridWidth = (width/4)*0.95;
 
         int squaresInRow = 10;
-        for (int i = 0; i < 11; i++) {
+        for (int i = 0; i < this.enemiesBoardsRaw.size(); i++) {
             GridPane singleEnemyGrid = new GridPane();
-            //singleEnemyGrid.setH
             singleEnemyGrid.setGridLinesVisible(true);
             singleEnemyGrid.setMaxWidth(singleEnemyGridWidth/2);
             singleEnemyGrid.setMaxHeight(singleEnemyGridWidth);
+
+            // Column constraints
             for(int j = 0; j < squaresInRow; j++) {
                 ColumnConstraints column = new ColumnConstraints();
                 column.setPercentWidth(singleEnemyGridWidth / squaresInRow); // 10 columns;
                 singleEnemyGrid.getColumnConstraints().add(column);
             }
-
+            // Row constraints
             for (int j = 0; j < 20 ; j++) {
                 RowConstraints row = new RowConstraints();
                 row.setPrefHeight(singleEnemyGridWidth / squaresInRow);// rows should have the same height as width
@@ -184,7 +190,7 @@ public class UiManager {
 
             double rectHeight = (singleEnemyGridWidth/20)*0.95;
             double rectWidth = rectHeight;
-
+            // filling up the grid
             for(int y = 0; y < 20; y++) {
                 for(int x = 0; x<10; x++) {
                     Rectangle rectangle = new Rectangle(rectWidth,rectHeight);
@@ -194,7 +200,7 @@ public class UiManager {
                     else
                         rectangle.setFill(Color.WHITE);
 
-                    this.enemiesBoards.get(i)[y][x] = rectangle;
+                    this.enemiesBoardsRects.get(i)[y][x] = rectangle;
                     GridPane.setHalignment(rectangle,HPos.CENTER);
                     GridPane.setValignment(rectangle,VPos.CENTER);
                     singleEnemyGrid.add(rectangle,x,y);
@@ -203,6 +209,7 @@ public class UiManager {
 
             GridPane.setHalignment(singleEnemyGrid, HPos.CENTER);
             GridPane.setValignment(singleEnemyGrid, VPos.CENTER);
+
             int y = i/4;
             this.enemiesGrid.add(singleEnemyGrid,i%4,y);
         }
@@ -212,22 +219,12 @@ public class UiManager {
         this.playerData.add(player);
     }
 
-    public void getEnemiesBoards() {
-        // for tests
-        this.enemiesBoards.add(this.rectArr.clone());
-        this.enemiesBoards.add(this.rectArr.clone());
-        this.enemiesBoards.add(this.rectArr.clone());
-    }
-
-    public void initEnemyBoards(int playerCount) {
-        for(int i = 0; i<playerCount;i++) {
-            this.enemiesBoards.add(new Rectangle[20][10]);
+    public void initEnemyBoards() {
+        for(int i = 0; i<this.enemiesBoardsRaw.size();i++) {
+            this.enemiesBoardsRects.add(new Rectangle[20][10]);
         }
     }
 
-    public void showEnemiesBoards() {
-
-    }
 
     public char getUserInput() {
         // we reset the current symbol from buffer and pass the copy

@@ -2,6 +2,7 @@ package tetris.client.serverRequests;
 
 import tetris.client.game.GameBoard;
 import tetris.client.game.PlayerData;
+import tetris.client.game.Tile;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -18,16 +19,20 @@ import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.LinkedBlockingQueue;
 
 public class ServerListener extends Thread {
-    private Socket socket;
-    private InputStream inStream;
-    private OutputStream outStream;
+    private final Socket socket;
+    private final InputStream inStream;
+    private final OutputStream outStream;
+
+    private final BlockingQueue<ClientTask> messagesFromGameClient;
+    private ArrayList<PlayerData> otherPlayersData;
+    private ArrayList<Tile[][]> enemiesBoards;
+    private int currentPlayerNumber;
+
 
     private boolean playerConnectedToLobby;
     private boolean playerReady;
-    private char playerMark;
     private boolean startGame;
-    private BlockingQueue<MessageType> messagesFromGameClient;
-    private ArrayList<PlayerData> otherPlayersData;
+    private char playerMark;
 
     public ServerListener(String host, int portNumber) throws IOException{
 
@@ -39,6 +44,8 @@ public class ServerListener extends Thread {
         this.startGame = false;
         this.messagesFromGameClient = new LinkedBlockingQueue<>();
         this.otherPlayersData = new ArrayList<>();
+        this.currentPlayerNumber = 0;
+        this.enemiesBoards = new ArrayList<>();
     }
 
     public void connectToLobby() {
@@ -90,7 +97,7 @@ public class ServerListener extends Thread {
         while(!startGame) {
             //handling messages form Client
             while(!messagesFromGameClient.isEmpty()) {
-                MessageType message = messagesFromGameClient.remove();
+                MessageType message = messagesFromGameClient.remove().message;
                 switch (message) {
                     case PLAYER_READY -> sendPlayerIsReady();
                     case PLAYER_NOT_READY -> sendPlayerIsNotReady();
@@ -111,8 +118,19 @@ public class ServerListener extends Thread {
     }
     public void gameLoop() {
         while (true) {
-            int a = 0;
-            a++;
+            while(!messagesFromGameClient.isEmpty()) {
+                ClientTask messageType = messagesFromGameClient.remove();
+                switch (messageType.message){
+                    case UPDATE_BOARD -> sendPlayerBoard((GameBoard) messageType.getData());
+                    case UPDATE_SCORE -> sendScore((PlayerData) messageType.getData());
+                }
+            }
+
+            //receive messages from server
+            MessageType message = listenForMessage();
+            switch (message){
+                case UPDATE_BOARD -> receiveUpdatedBoard();
+            }
         }
     }
 
@@ -122,21 +140,36 @@ public class ServerListener extends Thread {
             connectToLobby();
             lobbyLoop();
             gameLoop();
-            listenForMessage();
+            //listenForMessage();
         }catch (Exception e) {
             System.out.println(e);
         }
     }
 
-    public boolean isPlayerReady() {
-        return playerReady;
+    private void receiveUpdatedBoard() {
+        // message format:
+        // (char) player_mark char board[20][10]
+        try {
+            int bufferLen = 20*10 + 1;
+            byte[] buffer = inStream.readNBytes(bufferLen);
+
+            char playerMark = (char) buffer[0];
+            int playerId = 'A' - playerMark;
+            Tile[][] board = this.enemiesBoards.get(playerId);
+
+            int x = 0;
+            int y = 0;
+            for(int i = 1 ; i < bufferLen; i++) {
+                y = i/20;
+                x = i%10;
+                board[y][x].color = (char) buffer[i];
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
-    public synchronized void sendMessage(MessageType task) {
-        this.messagesFromGameClient.add(task);
-    }
-    
-    public void sendPlayerIsReady() {
+    private void sendPlayerIsReady() {
         try {
             System.out.println("sending: player is ready");
             byte[] message = {2}; // 2 <-> send: player_ready
@@ -150,7 +183,7 @@ public class ServerListener extends Thread {
         }
     }
 
-    public void sendPlayerIsNotReady() {
+    private void sendPlayerIsNotReady() {
         System.out.println("sending: player is not ready");
         try {
             byte[] message = {3}; // 3 <-> send: player_not_ready
@@ -164,13 +197,11 @@ public class ServerListener extends Thread {
             System.out.println();
         }
     }
-    public synchronized ArrayList<PlayerData> getOtherLobbyPlayersData() {
-            return this.otherPlayersData;
-    }
 
-    public void sendToGetOtherLobbyPlayers() {
+    private void sendToGetOtherLobbyPlayers() {
         try {
-           this.outStream.write(4); // 4 <-> get_other_players
+           //receiving all players currently connected to server
+            this.outStream.write(4); // 4 <-> get_other_players
 
            byte[] answerInfo = inStream.readNBytes(5);
            int messageLength = 0;
@@ -178,6 +209,14 @@ public class ServerListener extends Thread {
                messageLength += (messageLength<<8) + answerInfo[i] & 0xFF;
            }
            int playerNumber = answerInfo[4];
+
+           // setting up empty boards
+           while (currentPlayerNumber < playerNumber) {
+               enemiesBoards.add(Tile.initBoard(10,20));
+               currentPlayerNumber++;
+           }
+           this.currentPlayerNumber = playerNumber;
+
            byte[] data = inStream.readNBytes(messageLength - 5);
 
             this.otherPlayersData = PlayerData.fromBytes(data, playerNumber);
@@ -186,18 +225,34 @@ public class ServerListener extends Thread {
         }
     }
 
+    public boolean isPlayerReady() {
+        return playerReady;
+    }
+    public synchronized void sendMessage(ClientTask task) {
+        this.messagesFromGameClient.add(task);
+    }
+    public synchronized ArrayList<PlayerData> getOtherLobbyPlayersData() {
+        return this.otherPlayersData;
+    }
     public char getPlayerMark() {
         return this.playerMark;
     }
     public boolean getStartGame() {
         return this.startGame;
     }
+    public int getCurrentPlayerNumber() {
+        return  this.currentPlayerNumber;
+    }
 
-    public void sendPlayerLost() {
+    public ArrayList<Tile[][]> getEnemiesBoards() {
+        return this.enemiesBoards;
+    }
+
+    private void sendPlayerLost() {
 
     }
 
-    public void sendPlayerBoard(GameBoard board) {
+    private void sendPlayerBoard(GameBoard board) {
         Vector<Byte> arrayVector =board.getByteBoardArray();
 
         byte[] byteArray = new byte[arrayVector.size() + 1];
@@ -206,7 +261,8 @@ public class ServerListener extends Thread {
         }
         byteArray[0] = 5; // 5 = update_board_m
         try {
-            this.outStream.write(byteArray);
+            System.out.println("Sending updated position");
+            outStream.write(byteArray);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -222,10 +278,6 @@ public class ServerListener extends Thread {
     }
 
     public void getEnemiesLines() {
-
-    }
-
-    public void getEnemiesBoards() {
 
     }
 }
