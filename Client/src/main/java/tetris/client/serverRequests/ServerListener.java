@@ -9,21 +9,15 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Scanner;
-import java.util.Vector;
-import java.util.concurrent.BlockingDeque;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingDeque;
-import java.util.concurrent.LinkedBlockingQueue;
+import java.util.*;
+import java.util.concurrent.*;
 
 public class ServerListener extends Thread {
     private final Socket socket;
     private final InputStream inStream;
     private final OutputStream outStream;
 
-    private final BlockingQueue<ClientTask> messagesFromGameClient;
+    private final ConcurrentLinkedQueue<ClientTask> messagesFromGameClient;
     private ArrayList<PlayerData> otherPlayersData;
     private ArrayList<Tile[][]> enemiesBoards;
     private int currentPlayerNumber;
@@ -42,10 +36,14 @@ public class ServerListener extends Thread {
         this.outStream = socket.getOutputStream();
         this.playerReady = false;
         this.startGame = false;
-        this.messagesFromGameClient = new LinkedBlockingQueue<>();
+        this.messagesFromGameClient = new ConcurrentLinkedQueue<>();
         this.otherPlayersData = new ArrayList<>();
         this.currentPlayerNumber = 0;
         this.enemiesBoards = new ArrayList<>();
+    }
+
+    public ConcurrentLinkedQueue<ClientTask> getMessagesFromGameClient() {
+        return messagesFromGameClient;
     }
 
     public void connectToLobby() {
@@ -121,7 +119,7 @@ public class ServerListener extends Thread {
             while(!messagesFromGameClient.isEmpty()) {
                 ClientTask messageType = messagesFromGameClient.remove();
                 switch (messageType.message){
-                    case UPDATE_BOARD -> sendPlayerBoard((GameBoard) messageType.getData());
+                    case UPDATE_BOARD -> sendPlayerBoard((Tile[][]) messageType.getData());
                     case UPDATE_SCORE -> sendScore((PlayerData) messageType.getData());
                 }
             }
@@ -154,15 +152,17 @@ public class ServerListener extends Thread {
             byte[] buffer = inStream.readNBytes(bufferLen);
 
             char playerMark = (char) buffer[0];
-            int playerId = 'A' - playerMark;
+            System.out.println("Received position: " + playerMark);
+
+            int playerId = playerMark - 'A';
             Tile[][] board = this.enemiesBoards.get(playerId);
 
             int x = 0;
             int y = 0;
-            for(int i = 1 ; i < bufferLen; i++) {
-                y = i/20;
+            for(int i = 0 ; i < bufferLen - 1; i++) {
+                y = i/10;
                 x = i%10;
-                board[y][x].color = (char) buffer[i];
+                board[y][x].color = (char) buffer[i + 1];
             }
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -252,12 +252,16 @@ public class ServerListener extends Thread {
 
     }
 
-    private void sendPlayerBoard(GameBoard board) {
-        Vector<Byte> arrayVector =board.getByteBoardArray();
+    private void sendPlayerBoard(Tile[][] boardTile) {
 
-        byte[] byteArray = new byte[arrayVector.size() + 1];
-        for (int i = 1; i < arrayVector.size()+1; i++) {
-            byteArray[i] = arrayVector.get(i-1);
+        Vector<Byte>byteVector = new Vector<>();
+        for(Tile[] row: boardTile) {
+            byteVector.addAll(List.of(Tile.tileArrayToBytes(row)));
+        }
+
+        byte[] byteArray = new byte[byteVector.size() + 1];
+        for (int i = 1; i < byteVector.size()+1; i++) {
+            byteArray[i] = byteVector.get(i-1);
         }
         byteArray[0] = 5; // 5 = update_board_m
         try {
@@ -267,6 +271,8 @@ public class ServerListener extends Thread {
             throw new RuntimeException(e);
         }
     }
+
+
 
     public void sendScore(PlayerData data) {
         System.out.println("TODO sendScore");

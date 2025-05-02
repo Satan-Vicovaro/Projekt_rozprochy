@@ -7,6 +7,11 @@ import tetris.client.serverRequests.ServerListener;
 import tetris.client.ui.UiManager;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.stream.Collectors;
 
 public class TetrisGame {
     GameBoard board;
@@ -28,6 +33,8 @@ public class TetrisGame {
     boolean gameOver = false;
     boolean positionChanged = false;
     boolean scoreChanged = false;
+
+    ConcurrentLinkedQueue<ClientTask> queue;
 
 
     final int MAX_SPEED_STATE = 3;
@@ -75,7 +82,7 @@ public class TetrisGame {
                 double deltaTime = (now - lastUpdate) / 1_000_000_000.0; // seconds
                 updateGame(deltaTime);
             }
-            lastUpdate = now;
+             lastUpdate = now;
             if (gameOver) {
                 this.stop();
                 //manager.closeProgram();
@@ -85,8 +92,17 @@ public class TetrisGame {
 
     public void handleSendingData() {
         if(positionChanged) {
-            if(listener != null)
-                listener.sendMessage(new ClientTask(MessageType.UPDATE_BOARD,this.board));
+
+            Tile[][] board =this.board.board;
+
+            Tile[][] copyBoard = new Tile[sizeY][sizeX];
+            for(int y = 0; y<sizeY;y++) {
+                for(int x = 0; x<sizeX;x++) {
+                    copyBoard[y][x] = new Tile(board[y][x].color);
+                }
+            }
+            System.out.println("Tetris: sending board");
+            listener.sendMessage(new ClientTask(MessageType.UPDATE_BOARD, copyBoard));
             positionChanged = false;
         }
         if(scoreChanged) {
@@ -181,6 +197,7 @@ public class TetrisGame {
         this.playerData = new PlayerData(listener.getPlayerMark(), score,totalLinesCleared,speedState);
         this.manager.addPlayerData(playerData);
         this.listener = listener;
+        this.queue = listener.getMessagesFromGameClient();
     }
 
     public void init() {

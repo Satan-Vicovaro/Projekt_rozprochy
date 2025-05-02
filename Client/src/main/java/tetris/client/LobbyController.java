@@ -158,6 +158,8 @@ public class LobbyController {
     }
 
     public void initGame(Parent root) throws IOException {
+        pullForPlayerData();
+
         UiManager manager = new UiManager((AnchorPane) root,
                 stage, fxmlLoader,
                 10,20,

@@ -46,6 +46,10 @@ public class GameBoard {
         }
     }
 
+    public void setBoard(Tile[][] board) {
+        this.board = board;
+    }
+
     public void addRandomTetromino() {
         Tetromino shape = new Tetromino(sizeX,sizeY);
         addToBoard(shape);
@@ -80,7 +84,7 @@ public class GameBoard {
         Vector2d[] lowestPoints = shape.getLowestPoints();
 
         for (Vector2d point: lowestPoints) {
-            if (point.y > sizeY - 1) {
+            if (point.y > sizeY - 1 || point.y < 0) {
                 return true; //set shape on the bottom of board
             }
             Tile pointBelow = board[(int)(point.y + 1)][(int)point.x];

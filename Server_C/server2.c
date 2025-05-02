@@ -53,9 +53,9 @@ typedef struct exchange_information_handler_t{
 
 
 typedef enum task_type {
-    send_score_task,
-    send_updated_board_task,
-    send_lines_task
+    send_score_task = 1,
+    send_updated_board_task = 2,
+    send_lines_task = 3
 } task_type;
 
 typedef struct thread_task_t {
@@ -112,17 +112,23 @@ bool global_game_over = false;
 
 void send_to_all_besides_me(exchange_information_handler_t* h, int my_index, thread_task_t new_task) {
     for(int i = 0; i < h->current_player_num; i++) {
-        if(i==my_index) {
+        if(i == my_index) {
             //skipping ourselves
-            continue;
+            //continue;
         }
         
         thread_listener_t* thread = &(h->thread_arr[i]);
         pthread_mutex_t* lock  = &(thread->my_lock);     
+
+        if(thread->my_queue.current_size > MAX_QUEUE_SIZE) {
+            printf("Could not add to queue: %c\n",thread->player_data.player_mark );
+            return;
+        }
         
         pthread_mutex_lock(lock);
-        int size = ++(thread->my_queue.current_size);
+        int size = (thread->my_queue.current_size);
         thread->my_queue.array[size] = new_task;
+        (thread->my_queue.current_size)++;
         pthread_mutex_unlock(lock);
     }
 }
@@ -142,21 +148,31 @@ void update_board(thread_listener_t* l, char buffer[BUFFER_SIZE]) {
     new_task.that_thread_lock = &(l->my_lock);
 
     send_to_all_besides_me(l->handler,l->my_player_index,new_task);
+
+    for(int y = 0; y<BOARD_SIZE_Y; y++) {
+        for(int x = 0; x<BOARD_SIZE_X; x++) {
+            printf("%c", l->player_data.board[y][x]);
+        }
+        printf("\n");
+    }
 }
 
 void manage_player_messages(thread_listener_t* l) {
     char buffer[BUFFER_SIZE] = {0};
     int bytes_read = read(l->client_fd,buffer, BUFFER_SIZE);
-
+    if(bytes_read <= 0)
+        return;
+    
+    
     switch (buffer[0])
     {
     case update_board_m:
         update_board(l,buffer);   
-        printf("%c board updated!\n", l->player_data.player_mark);     
+        printf("%c board updated!\n", l->player_data.player_mark);
         break;
     
     default:
-    printf("got massage but its wrong\n");
+        printf("got massage but its wrong\n");
         break;
     }
 }
@@ -178,11 +194,13 @@ void send_board(thread_listener_t*l, thread_task_t task) {
 
     buffer[0] = update_board_m;
     buffer[1] = task.player_mark;
-    send(l->client_fd,buffer,BOARD_SIZE_X * BOARD_SIZE_Y + 2,0);
+    send(l->client_fd,buffer,BOARD_SIZE_X * BOARD_SIZE_Y + 2, 0);
+    
+    printf("Board sent: %c --> %c \n", l->player_data.player_mark, task.player_mark);
 }
 
 void manage_queue_tasks(thread_listener_t* l) {
-    
+    //printf("t\n");
     while(l->my_queue.current_size != 0) {
         int index = l->my_queue.current_size - 1;
 
@@ -212,13 +230,15 @@ void manage_queue_tasks(thread_listener_t* l) {
 }
 
 int main_loop(thread_listener_t* l) {
-
-    fd_set readfds;
-    FD_ZERO(&readfds);
-    FD_SET(l->client_fd, &readfds);
+    
     printf("%c: in main loop\n", l->player_data.player_mark);
     while(!global_game_over) {
-        struct timeval timeout = {5,500}; // 1.5 seconds timeout
+        
+        fd_set readfds;
+        FD_ZERO(&readfds);
+        FD_SET(l->client_fd, &readfds);
+        
+        struct timeval timeout = {0,100}; // 1.25 seconds timeout
         int ready = select(l->client_fd + 1, &readfds, NULL, NULL, &timeout);    
 
         if(ready < 0) {
@@ -226,7 +246,6 @@ int main_loop(thread_listener_t* l) {
             return -1;
         }else if(ready == 0) {
             // timeout occured we check the queue tasks;
-            //printf("time out\n");
             manage_queue_tasks(l);
         } else{
             // we got message from player
@@ -548,7 +567,7 @@ void init_server(server_t* s) {
     }
 
     // Listen for connections
-    if (listen(s->server_fd, 3) < 0) {
+    if (listen(s->server_fd, 10000) < 0) {
         perror("listen failed");
         close(s->server_fd);
         exit(EXIT_FAILURE);
@@ -595,7 +614,7 @@ void main_game_loop(server_t* s) {
     while(true) {
 
         for(int i = 0; i < s->cur_player_num; i++) {
-            sleep(1);
+            sleep(10);
             if(s->threads[i].player_data.status != lost_s) {
                 continue;
             }

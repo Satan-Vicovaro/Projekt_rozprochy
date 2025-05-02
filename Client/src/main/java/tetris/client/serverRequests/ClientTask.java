@@ -3,27 +3,27 @@ package tetris.client.serverRequests;
 import tetris.client.game.PlayerData;
 import tetris.client.game.Tile;
 
+import java.util.ArrayList;
+
 public class ClientTask {
     public MessageType message;
     private Object data;
+    private PlayerData playerData;
 
     public ClientTask(MessageType message) {
         this.message = message;
-        data = null;
+        this.data = null;
     }
 
-    public ClientTask(MessageType message, Object data) {
+    public ClientTask(MessageType message, Object  data) {
         this.message = message;
         this.data = data;
     }
 
-    public Object getData() {
-        return data;
+    public Object  getData() {
+        return this.data;
     }
-
-    public String getType() {
-        if (data instanceof PlayerData) return "PlayerData";
-        if (data instanceof Tile[][]) return  "Tile[][]";
-        return "Unknown";
+    public PlayerData getPlayerData() {
+        return playerData;
     }
 }
