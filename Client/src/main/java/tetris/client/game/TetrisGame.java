@@ -26,6 +26,9 @@ public class TetrisGame {
     int score;
     int totalLinesCleared;
 
+    int linesToSend;
+    int selectedEnemyIndex;
+
     PlayerData playerData;
 
     ServerListener listener;
@@ -68,6 +71,7 @@ public class TetrisGame {
             manager.updateScoreBoard();
             playerData.updateData(score,totalLinesCleared,speedState);
 
+            manager.updateOurPlayerScore();
 
             board.removeFromBoard(currentShape);
         }
@@ -103,8 +107,7 @@ public class TetrisGame {
             positionChanged = false;
         }
         if(scoreChanged) {
-            if(listener != null)
-                listener.sendMessage(new ClientTask(MessageType.UPDATE_SCORE, this.playerData));
+            listener.sendMessage(new ClientTask(MessageType.UPDATE_SCORE, this.playerData));
             scoreChanged = false;
         }
     }
@@ -125,6 +128,7 @@ public class TetrisGame {
 
        // if player moved a piece
        if (input != 0) {
+           positionChanged = true;
            if (input =='A') {
                // move left
                currentShape.shiftBy(Vector2d.ones(Direction.LEFT));;
@@ -141,8 +145,15 @@ public class TetrisGame {
                currentShape.rotateLeft();
            } else if(input == 'E') {
                currentShape.rotateRight();
+           } else if (input == 'k') {
+               positionChanged = false;
+               if(selectedEnemyIndex<listener.getCurrentPlayerNumber())
+                   this.selectedEnemyIndex++;
+           }else if (input == 'j') {
+               positionChanged = false;
+               if(selectedEnemyIndex>0)
+                   this.selectedEnemyIndex--;
            }
-           positionChanged = true;
        }
     }
    public Tetromino handlePlacingBlock(Tetromino currentShape) {
@@ -165,12 +176,17 @@ public class TetrisGame {
                break;
            case 2:
                score += 100;
+               this.linesToSend +=1;
                break;
            case 3:
                score += 300;
+
+               this.linesToSend +=2;
                break;
            case 4:
                score += 1200;
+
+               this.linesToSend +=3;
                break;
            default:
                break;
@@ -191,6 +207,7 @@ public class TetrisGame {
         this.fallingSpeed = new Vector2d(0,1F);
         this.totalLinesCleared = 0;
         this.score = 0;
+        this.linesToSend = 0;
         this.playerData = new PlayerData(listener.getPlayerMark(), score,totalLinesCleared,speedState);
         this.manager.addPlayerData(playerData);
         this.listener = listener;
@@ -201,6 +218,7 @@ public class TetrisGame {
         manager.initEnemyBoards();
         manager.loadEnemiesGrids();
         manager.updateBoard(board.getTiles());
+        manager.initSelectedBoardMark();
         manager.run();
     }
 

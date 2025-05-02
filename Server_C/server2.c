@@ -241,7 +241,7 @@ void send_score(thread_listener_t* l, thread_task_t task) {
     memcpy(&score_copy, score, sizeof(score_t));
     pthread_mutex_unlock(task.that_thread_lock);
     //printf("sending score: score %d, state %f, lines %d\n",
-        score_copy.current_score,score_copy.game_state,score_copy.lines_scored);
+        //score_copy.current_score,score_copy.game_state,score_copy.lines_scored);
     char buffer[BUFFER_SIZE];
     //message format:
     //(char)message_type (char)player_mark (score_t)score_copy

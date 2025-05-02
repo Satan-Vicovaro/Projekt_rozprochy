@@ -22,6 +22,7 @@ import tetris.client.game.PlayerData;
 import tetris.client.game.Tile;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class UiManager {
@@ -42,12 +43,14 @@ public class UiManager {
     AtomicReference<Character> symbol = new AtomicReference<>((char) -1);
 
     TextFlow scoreText;
-
-    ArrayList<PlayerData> playerData;
+    PlayerData outPlayerData;
+    final List<PlayerData> playerData;
     TextFlow leaderBoard;
 
+    Rectangle selectedPlayerMark;
+
     public UiManager(AnchorPane root, Stage stage, FXMLLoader fxmlLoader, int sizeX, int sizeY, int playerNum,
-                     ArrayList<Tile[][]> enemiesBoardsRaw, ArrayList<PlayerData> playerData) {
+                     ArrayList<Tile[][]> enemiesBoardsRaw, List<PlayerData> playerData) {
         this.root = root;
         this.stage = stage;
         this.stage.setResizable(false);
@@ -95,6 +98,14 @@ public class UiManager {
                     symbol.set('E');
                     System.out.println("Pressed E");
                 }
+                case J -> {
+                    symbol.set('j');
+                    System.out.println("Pressed ⬅");
+                }
+                case K -> {
+                    symbol.set('k');
+                    System.out.println("Pressed ➡");
+                }
             }
         });
 
@@ -135,7 +146,7 @@ public class UiManager {
         for (int y = 0; y<sizeY; y++) {
             for (int x = 0; x < sizeX; x++) {
                 if(board[y][x].color != ' ') {
-                    rectArr[y][x].setFill(Color.BLUE);
+                    rectArr[y][x].setFill(board[y][x].getColor());
                 }else {
                     rectArr[y][x].setFill(Color.WHITE);
                 }
@@ -144,7 +155,6 @@ public class UiManager {
     }
 
     public void updateEnemiesBoards() {
-
         for(int i = 0; i <this.enemiesBoardsRaw.size(); i++ ) {
             Tile[][] tileBoards = this.enemiesBoardsRaw.get(i);
             Rectangle[][]enemyVisualBoard = this.enemiesBoardsRects.get(i);
@@ -159,6 +169,27 @@ public class UiManager {
                 }
             }
         }
+    }
+
+    public void initSelectedBoardMark() {
+        this.selectedPlayerMark = new Rectangle(30,30,Color.DARKRED);
+        GridPane.setRowIndex(selectedPlayerMark,0);
+        GridPane.setColumnIndex(selectedPlayerMark,0);
+        this.enemiesGrid.getChildren().add(selectedPlayerMark);
+    }
+
+    public void markSelectedBoard(int boardIndex) {
+        if(boardIndex<0) {
+            return;
+        }
+        if(boardIndex>enemiesBoardsRaw.size()) {
+            return;
+        }
+
+        int x =boardIndex%sizeX;
+        int y =boardIndex/sizeX;
+        GridPane.setRowIndex(selectedPlayerMark,y);
+        GridPane.setColumnIndex(selectedPlayerMark,x);
     }
 
     public void loadEnemiesGrids() {
@@ -217,7 +248,7 @@ public class UiManager {
     }
 
     public void addPlayerData(PlayerData player) {
-        this.playerData.add(player);
+        this.outPlayerData = player;
     }
 
     public void initEnemyBoards() {
@@ -234,10 +265,10 @@ public class UiManager {
         return copy;
     }
 
-    public void updateScore(int score, int linesCleared, float speedState) {
-        String text = "Score: " + Integer.toString(score) + "\nLines cleared: "
-                    + Integer.toString(linesCleared)
-                    + "\nSpeed: " + Integer.toString((int)(speedState));
+    public void updateOurPlayerScore() {
+        String text = "Score: " + Integer.toString(outPlayerData.score) + "\nLines cleared: "
+                    + Integer.toString(outPlayerData.linesCleared)
+                    + "\nSpeed: " + Integer.toString((int)(outPlayerData.gameStage));
 
         Text showText = new Text(text);
         showText.setFont(new Font(16));
@@ -246,11 +277,13 @@ public class UiManager {
 
     public void updateScoreBoard() {
         leaderBoard.getChildren().clear();
-        for (PlayerData data : playerData) {
-            Text text = new Text(data.toString());
-            text.setFont(new Font(14));
+        synchronized (playerData) {
+            for (PlayerData data : playerData) {
+                Text text = new Text(data.toString());
+                text.setFont(new Font(14));
 
-            leaderBoard.getChildren().add(text);
+                leaderBoard.getChildren().add(text);
+            }
         }
     }
 

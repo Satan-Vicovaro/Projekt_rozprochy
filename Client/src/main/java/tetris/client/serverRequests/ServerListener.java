@@ -21,7 +21,7 @@ public class ServerListener extends Thread {
     private final OutputStream outStream;
 
     private final ConcurrentLinkedQueue<ClientTask> messagesFromGameClient;
-    private ArrayList<PlayerData> otherPlayersData;
+    private final List<PlayerData> otherPlayersData;
     private ArrayList<Tile[][]> enemiesBoards;
     private int currentPlayerNumber;
 
@@ -40,7 +40,7 @@ public class ServerListener extends Thread {
         this.playerReady = false;
         this.startGame = false;
         this.messagesFromGameClient = new ConcurrentLinkedQueue<>();
-        this.otherPlayersData = new ArrayList<>();
+        this.otherPlayersData = Collections.synchronizedList(new ArrayList<>());
         this.currentPlayerNumber = 0;
         this.enemiesBoards = new ArrayList<>();
     }
@@ -199,7 +199,11 @@ public class ServerListener extends Thread {
 
            byte[] data = inStream.readNBytes(messageLength - 5);
 
-            this.otherPlayersData = PlayerData.fromBytes(data, playerNumber);
+           List<PlayerData> newData = PlayerData.fromBytes(data, playerNumber);
+           synchronized (otherPlayersData) {
+               otherPlayersData.clear();
+               otherPlayersData.addAll(newData);
+           }
         } catch (Exception e) {
             System.out.println(e);
         }
@@ -211,7 +215,7 @@ public class ServerListener extends Thread {
     public synchronized void sendMessage(ClientTask task) {
         this.messagesFromGameClient.add(task);
     }
-    public synchronized ArrayList<PlayerData> getOtherLobbyPlayersData() {
+    public synchronized List<PlayerData> getOtherLobbyPlayersData() {
         return this.otherPlayersData;
     }
     public char getPlayerMark() {
@@ -302,8 +306,10 @@ public class ServerListener extends Thread {
             int linesCleared = buffer.getInt();
 
             int playerIndex = playerMark - 'A';
-            otherPlayersData.get(playerIndex).updateData(currentScore,linesCleared,gameStage);
-            otherPlayersData.sort(new PlayerDataComparator());
+            synchronized (otherPlayersData) {
+                otherPlayersData.get(playerIndex).updateData(currentScore,linesCleared,gameStage);
+                otherPlayersData.sort(new PlayerDataComparator());
+            }
 
         } catch (IOException e) {
             throw new RuntimeException(e);

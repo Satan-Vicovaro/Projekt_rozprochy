@@ -26,6 +26,7 @@ import tetris.client.ui.UiManager;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Vector;
 
 public class LobbyController {
@@ -81,13 +82,13 @@ public class LobbyController {
     private void pullForPlayerData() {
         if(connectedToServer) {
             listener.sendMessage(new ClientTask(MessageType.GET_OTHER_PLAYERS));
-            ArrayList<PlayerData> lobbyList = listener.getOtherLobbyPlayersData();
+            List<PlayerData> lobbyList = listener.getOtherLobbyPlayersData();
             updateLobbyList(lobbyList);
         }
     }
     private void lobbyBoardRefresh() {
         if(connectedToServer) {
-            ArrayList<PlayerData> lobbyList = listener.getOtherLobbyPlayersData();
+            List<PlayerData> lobbyList = listener.getOtherLobbyPlayersData();
             updateLobbyList(lobbyList);
         }
     }
@@ -103,7 +104,7 @@ public class LobbyController {
         stage.show();
     }
 
-    public void updateLobbyList(ArrayList<PlayerData> lobbyList) {
+    public void updateLobbyList(List<PlayerData> lobbyList) {
         this.lobbyPlayerText.getChildren().clear(); // resetting lobby text
         for(PlayerData player : lobbyList) {
             Text text = new Text(player.toStringLobby());
