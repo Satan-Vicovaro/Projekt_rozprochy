@@ -3,16 +3,11 @@ package tetris.client.game;
 import javafx.animation.AnimationTimer;
 import tetris.client.serverRequests.ClientTask;
 import tetris.client.serverRequests.MessageType;
-import tetris.client.serverRequests.ReceivedLinesData;
+import tetris.client.serverRequests.LinesMessageData;
 import tetris.client.serverRequests.ServerListener;
 import tetris.client.ui.UiManager;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.stream.Collectors;
 
 public class TetrisGame {
     GameBoard board;
@@ -38,7 +33,9 @@ public class TetrisGame {
     boolean positionChanged = false;
     boolean scoreChanged = false;
 
-    private final ConcurrentLinkedQueue<ReceivedLinesData> receivedLines;
+    boolean runOnce = false;
+
+    private final ConcurrentLinkedQueue<LinesMessageData> receivedLines;
 
     final int MAX_SPEED_STATE = 3;
     AnimationTimer gameLoop = new AnimationTimer() {
@@ -49,6 +46,12 @@ public class TetrisGame {
         public void updateGame(double deltaTime) {
             if (gameOver) {
                 //only update the board
+                manager.updateEnemiesBoards();
+                manager.updateScoreBoard();
+                if(!runOnce) {
+                    listener.sendMessage(new ClientTask(MessageType.UPDATE_BOARD,board.getTiles()));
+                    runOnce = true;
+                }
                 return;
             }
 
@@ -63,7 +66,7 @@ public class TetrisGame {
             if (board.checkPlaceShape(currentShape)) { // placing shape
                 currentShape = handlePlacingBlock(currentShape);
                 while(!receivedLines.isEmpty()){
-                    ReceivedLinesData data = receivedLines.remove();
+                    LinesMessageData data = receivedLines.remove();
                     board.addLinesToBottomOfBoard(data.numberOfLines, data.senderMark);
                 }
                 return; // creating a new one in the next loop
@@ -165,7 +168,7 @@ public class TetrisGame {
            } else if (input == 'F') {
                // selectedEnemyIndex != listener.getMyIndex()
                if (linesToSend > 0) {
-                   listener.sendMessage(new ClientTask(MessageType.SEND_LINES_TO_ENEMY, linesToSend));
+                   listener.sendMessage(new ClientTask(MessageType.SEND_LINES_TO_ENEMY, new LinesMessageData((char)('A'+selectedEnemyIndex),linesToSend)));
                }
                linesToSend = 0;
            }
@@ -222,7 +225,7 @@ public class TetrisGame {
         this.fallingSpeed = new Vector2d(0,1F);
         this.totalLinesCleared = 0;
         this.score = 0;
-        this.linesToSend = 0;
+        this.linesToSend = 2;
         this.playerData = new PlayerData(listener.getPlayerMark(), score,totalLinesCleared,speedState);
         this.manager.addPlayerData(playerData);
         this.listener = listener;

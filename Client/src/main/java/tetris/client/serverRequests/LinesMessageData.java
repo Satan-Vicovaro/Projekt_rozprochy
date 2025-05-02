@@ -1,10 +1,10 @@
 package tetris.client.serverRequests;
 
-public class ReceivedLinesData {
+public class LinesMessageData {
     public char senderMark;
     public int numberOfLines;
 
-    public ReceivedLinesData(char senderMark, int numberOfLines) {
+    public LinesMessageData(char senderMark, int numberOfLines) {
         this.senderMark = senderMark;
         this.numberOfLines = numberOfLines;
     }

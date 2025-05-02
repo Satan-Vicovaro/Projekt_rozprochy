@@ -20,7 +20,7 @@ public class ServerListener extends Thread {
     private final OutputStream outStream;
 
     private final ConcurrentLinkedQueue<ClientTask> messagesFromGameClient;
-    private final ConcurrentLinkedQueue<ReceivedLinesData> receivedLines;
+    private final ConcurrentLinkedQueue<LinesMessageData> receivedLines;
     private final List<PlayerData> otherPlayersData;
     private ArrayList<Tile[][]> enemiesBoards;
     private int currentPlayerNumber;
@@ -126,7 +126,7 @@ public class ServerListener extends Thread {
                 switch (messageType.message){
                     case UPDATE_BOARD -> sendPlayerBoard((Tile[][]) messageType.getData());
                     case UPDATE_SCORE -> sendScore((PlayerData) messageType.getData());
-                    case SEND_LINES_TO_ENEMY -> sendLinesToEnemy((int) messageType.getData());
+                    case SEND_LINES_TO_ENEMY -> sendLinesToEnemy((LinesMessageData) messageType.getData());
                 }
             }
 
@@ -238,7 +238,7 @@ public class ServerListener extends Thread {
     public int getMyIndex() {
         return 'A' - this.playerMark;
     }
-    public ConcurrentLinkedQueue<ReceivedLinesData> getReceivedLines() {
+    public ConcurrentLinkedQueue<LinesMessageData> getReceivedLines() {
         return this.receivedLines;
     }
 
@@ -273,12 +273,12 @@ public class ServerListener extends Thread {
         }
     }
 
-    private void sendLinesToEnemy(int linesToSend) {
+    private void sendLinesToEnemy(LinesMessageData data) {
         byte[] message = ByteBuffer.allocate(1+1+1+4).order(ByteOrder.LITTLE_ENDIAN)
                 .put(MessageType.intoByte(MessageType.SEND_LINES_TO_ENEMY))//message type
-                .put((byte)this.playerMark) //  recipient
+                .put((byte)(data.senderMark)) //  recipient
                 .put((byte)playerMark) // sender
-                .putInt(linesToSend).array();//num of lines
+                .putInt(data.numberOfLines).array();//num of lines
         try {
             outStream.write(message);
         } catch (IOException e) {
@@ -339,7 +339,7 @@ public class ServerListener extends Thread {
             ByteBuffer buffer = ByteBuffer.wrap(inStream.readNBytes(1 + 4)).order(ByteOrder.LITTLE_ENDIAN);
             char senderMark = (char) buffer.get();
             int linesNum = buffer.getInt();
-            ReceivedLinesData data = new ReceivedLinesData(senderMark,linesNum);
+            LinesMessageData data = new LinesMessageData(senderMark,linesNum);
             this.receivedLines.add(data);
         } catch (IOException e) {
             throw new RuntimeException(e);
