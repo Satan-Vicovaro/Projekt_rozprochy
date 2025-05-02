@@ -138,15 +138,15 @@ public class GameBoard {
         return clearFullLines();
     }
 
-    public void addLinesToBottomOfBoard(int linesNum) {
+    public void addLinesToBottomOfBoard(int linesNum, char playerMark) {
 
         // shifting up tiles
-        for(int y = 0; y > sizeY - 1 - linesNum; y++) {
-            for(int x = 0; x<sizeX; x++) {
-                if(board[y + 1][x].color !=' '){
-                    Tile temp = board[y][x];
-                    board[y][x] = board[y + 1][x];
-                    board[y + 1][x] = temp;
+        for(int i = 0 ; i < linesNum; i++) {
+            for(int y = 1; y < sizeY; y++) {
+                for(int x = 0; x<sizeX; x++) {
+                    Tile temp = board[y-1][x];
+                    board[y-1][x] = board[y][x];
+                    board[y][x] = temp;
                 }
             }
         }

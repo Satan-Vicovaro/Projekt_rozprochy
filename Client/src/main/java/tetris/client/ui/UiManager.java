@@ -99,12 +99,16 @@ public class UiManager {
                     System.out.println("Pressed E");
                 }
                 case J -> {
-                    symbol.set('j');
+                    symbol.set('J');
                     System.out.println("Pressed ⬅");
                 }
                 case K -> {
-                    symbol.set('k');
+                    symbol.set('K');
                     System.out.println("Pressed ➡");
+                }
+                case F -> {
+                    symbol.set('F');
+                    System.out.println("Pressed F");
                 }
             }
         });
@@ -186,8 +190,8 @@ public class UiManager {
             return;
         }
 
-        int x =boardIndex%sizeX;
-        int y =boardIndex/sizeX;
+        int x = boardIndex%4; // grid board is 4x4
+        int y = boardIndex/4;
         GridPane.setRowIndex(selectedPlayerMark,y);
         GridPane.setColumnIndex(selectedPlayerMark,x);
     }
@@ -265,10 +269,11 @@ public class UiManager {
         return copy;
     }
 
-    public void updateOurPlayerScore() {
-        String text = "Score: " + Integer.toString(outPlayerData.score) + "\nLines cleared: "
-                    + Integer.toString(outPlayerData.linesCleared)
-                    + "\nSpeed: " + Integer.toString((int)(outPlayerData.gameStage));
+    public void updateOurPlayerScore(int linesToSend) {
+        String text = "Score: " + outPlayerData.score
+                    + "\nLines cleared: " + outPlayerData.linesCleared
+                    + "\nSpeed: " + (2*(int)(outPlayerData.gameStage)
+                    + "\n Lines to send: " + linesToSend);
 
         Text showText = new Text(text);
         showText.setFont(new Font(16));

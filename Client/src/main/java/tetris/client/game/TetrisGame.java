@@ -3,6 +3,7 @@ package tetris.client.game;
 import javafx.animation.AnimationTimer;
 import tetris.client.serverRequests.ClientTask;
 import tetris.client.serverRequests.MessageType;
+import tetris.client.serverRequests.ReceivedLinesData;
 import tetris.client.serverRequests.ServerListener;
 import tetris.client.ui.UiManager;
 
@@ -37,6 +38,8 @@ public class TetrisGame {
     boolean positionChanged = false;
     boolean scoreChanged = false;
 
+    private final ConcurrentLinkedQueue<ReceivedLinesData> receivedLines;
+
     final int MAX_SPEED_STATE = 3;
     AnimationTimer gameLoop = new AnimationTimer() {
         // Move piece down, check collision, update score, etc.
@@ -58,8 +61,12 @@ public class TetrisGame {
             currentShape.makeMoveBorderValid();
 
             if (board.checkPlaceShape(currentShape)) { // placing shape
-                currentShape =  handlePlacingBlock(currentShape);
-                return;
+                currentShape = handlePlacingBlock(currentShape);
+                while(!receivedLines.isEmpty()){
+                    ReceivedLinesData data = receivedLines.remove();
+                    board.addLinesToBottomOfBoard(data.numberOfLines, data.senderMark);
+                }
+                return; // creating a new one in the next loop
             }
 
             board.addToBoard(currentShape);
@@ -71,7 +78,7 @@ public class TetrisGame {
             manager.updateScoreBoard();
             playerData.updateData(score,totalLinesCleared,speedState);
 
-            manager.updateOurPlayerScore();
+            manager.updateOurPlayerScore(linesToSend);
 
             board.removeFromBoard(currentShape);
         }
@@ -145,14 +152,22 @@ public class TetrisGame {
                currentShape.rotateLeft();
            } else if(input == 'E') {
                currentShape.rotateRight();
-           } else if (input == 'k') {
+           } else if (input == 'K') {
                positionChanged = false;
-               if(selectedEnemyIndex<listener.getCurrentPlayerNumber())
+               if(selectedEnemyIndex < listener.getCurrentPlayerNumber() - 1)
                    this.selectedEnemyIndex++;
-           }else if (input == 'j') {
+               manager.markSelectedBoard(selectedEnemyIndex);
+           }else if (input == 'J') {
                positionChanged = false;
                if(selectedEnemyIndex>0)
                    this.selectedEnemyIndex--;
+               manager.markSelectedBoard(selectedEnemyIndex);
+           } else if (input == 'F') {
+               // selectedEnemyIndex != listener.getMyIndex()
+               if (linesToSend > 0) {
+                   listener.sendMessage(new ClientTask(MessageType.SEND_LINES_TO_ENEMY, linesToSend));
+               }
+               linesToSend = 0;
            }
        }
     }
@@ -211,6 +226,7 @@ public class TetrisGame {
         this.playerData = new PlayerData(listener.getPlayerMark(), score,totalLinesCleared,speedState);
         this.manager.addPlayerData(playerData);
         this.listener = listener;
+        this.receivedLines = listener.getReceivedLines();
     }
 
     public void init() {

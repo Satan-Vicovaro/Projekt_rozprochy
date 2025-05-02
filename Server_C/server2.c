@@ -103,7 +103,7 @@ typedef enum message_type {
     get_other_players_m = (char) 4,
     update_board_m = (char) 5,
     update_score_m = (char) 6,
-    send_lines_to_enemy = (char) 7,
+    send_lines_to_enemy_m = (char) 7,
     start_game_m = (char) 8,
     not_a_message_m =(char) 9,
     message_timeout = (char) 10,
@@ -111,6 +111,29 @@ typedef enum message_type {
 
 bool start_game = false;
 bool global_game_over = false;
+
+void send_to_one(exchange_information_handler_t* h,int receiver_index, thread_task_t new_task) { 
+    
+    if(receiver_index < 0 || receiver_index > h->current_player_num-1) {
+        printf("%c: Wrong receiver_index\n", new_task.player_mark);
+        return;
+    }
+
+    thread_listener_t* thread = &(h->thread_arr[receiver_index]);
+    pthread_mutex_t* lock  = &(thread->my_lock);     
+
+    if(thread->my_queue.current_size > MAX_QUEUE_SIZE) {
+        printf("Could not add to queue: %c\n",thread->player_data.player_mark );
+        return;
+    }
+
+    //adding data    
+    pthread_mutex_lock(lock);
+    int size = (thread->my_queue.current_size);
+    thread->my_queue.array[size] = new_task;
+    (thread->my_queue.current_size)++;
+    pthread_mutex_unlock(lock);
+}
 
 void send_to_all_besides_me(exchange_information_handler_t* h, int my_index, thread_task_t new_task) {
     for(int i = 0; i < h->current_player_num; i++) {
@@ -133,6 +156,26 @@ void send_to_all_besides_me(exchange_information_handler_t* h, int my_index, thr
         (thread->my_queue.current_size)++;
         pthread_mutex_unlock(lock);
     }
+}
+
+void message_with_lines_to_enemy(thread_listener_t* l, char buffer[BUFFER_SIZE], int read_bytes) {
+    // message format:
+    // (char) message type (char)receiver_mark (char)sender_mark (int)lines_num 
+    char receiver_mark = buffer[sizeof(char)];
+    char sender_mark = buffer[2*sizeof(char)];
+    int lines_num;
+    memcpy(&lines_num,buffer + 3* sizeof(char),sizeof(int));
+    if(sender_mark != l->player_data.player_mark) {
+        printf("Got wrong line sender: S: %c != M: %c \n", sender_mark, l->player_data.player_mark);
+    }
+    printf("Lines received: R: %c, S: %c, l: %d \n",receiver_mark,sender_mark,lines_num);
+
+    thread_task_t new_task;
+    new_task.type = send_lines_task;
+    new_task.player_mark = sender_mark;
+    new_task.that_thread_lock = &(l->my_lock);
+    new_task.data = (void *) lines_num;
+    send_to_one(l->handler, 'A'-receiver_mark,new_task);
 }
 
 void update_score(thread_listener_t* l, char buffer[BUFFER_SIZE], int read_bytes) {
@@ -204,10 +247,29 @@ void manage_player_messages(thread_listener_t* l) {
         update_score(l,buffer,bytes_read);
         //printf("%c score updated!\n", l->player_data.player_mark);
         break;
+    case send_lines_to_enemy_m:
+        message_with_lines_to_enemy(l, buffer,bytes_read);
+        break;
     default:
         printf("got massage but its wrong\n");
         break;
     }
+}
+
+void send_lines(thread_listener_t*l, thread_task_t task) {
+    // this task don't require reading from memory
+    // message format:
+    // (char)message_type (char)sender_mark (int)lines_num;
+    
+    char buffer[BUFFER_SIZE] = {0};
+
+    buffer[0] = send_lines_to_enemy_m;
+    buffer[sizeof(char)] = task.player_mark;
+    int lines = (int)task.data;
+    memcpy(buffer + 2*sizeof(char),&lines,sizeof(int));
+    
+    send(l->client_fd, buffer, 2*sizeof(char)+sizeof(int), 0);
+    printf("send lines to enemy: %c --> %c : %d\n", task.player_mark, l->player_data.player_mark, task.data);
 }
 
 void send_board(thread_listener_t*l, thread_task_t task) {
@@ -275,7 +337,7 @@ void manage_queue_tasks(thread_listener_t* l) {
             send_board(l,task_copy);
             break;
         case send_lines_task:
-            printf("TODO implement send_lines_task\n");
+            send_lines(l,task_copy);
             break;
         default:
             printf("Wrong task sent: %c \n",l->player_data.player_mark);
@@ -293,7 +355,7 @@ int main_loop(thread_listener_t* l) {
         FD_ZERO(&readfds);
         FD_SET(l->client_fd, &readfds);
         
-        struct timeval timeout = {0,100}; // 1.25 seconds timeout
+        struct timeval timeout = {0,100}; // 0.1 seconds timeout
         int ready = select(l->client_fd + 1, &readfds, NULL, NULL, &timeout);    
 
         if(ready < 0) {

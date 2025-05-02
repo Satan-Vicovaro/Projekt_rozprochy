@@ -1,6 +1,5 @@
 package tetris.client.serverRequests;
 
-import tetris.client.game.GameBoard;
 import tetris.client.game.PlayerData;
 import tetris.client.game.PlayerDataComparator.PlayerDataComparator;
 import tetris.client.game.Tile;
@@ -21,6 +20,7 @@ public class ServerListener extends Thread {
     private final OutputStream outStream;
 
     private final ConcurrentLinkedQueue<ClientTask> messagesFromGameClient;
+    private final ConcurrentLinkedQueue<ReceivedLinesData> receivedLines;
     private final List<PlayerData> otherPlayersData;
     private ArrayList<Tile[][]> enemiesBoards;
     private int currentPlayerNumber;
@@ -43,6 +43,7 @@ public class ServerListener extends Thread {
         this.otherPlayersData = Collections.synchronizedList(new ArrayList<>());
         this.currentPlayerNumber = 0;
         this.enemiesBoards = new ArrayList<>();
+        this.receivedLines = new ConcurrentLinkedQueue<>();
     }
 
     public ConcurrentLinkedQueue<ClientTask> getMessagesFromGameClient() {
@@ -117,6 +118,7 @@ public class ServerListener extends Thread {
             }
         }
     }
+
     public void gameLoop() {
         while (true) {
             while(!messagesFromGameClient.isEmpty()) {
@@ -124,6 +126,7 @@ public class ServerListener extends Thread {
                 switch (messageType.message){
                     case UPDATE_BOARD -> sendPlayerBoard((Tile[][]) messageType.getData());
                     case UPDATE_SCORE -> sendScore((PlayerData) messageType.getData());
+                    case SEND_LINES_TO_ENEMY -> sendLinesToEnemy((int) messageType.getData());
                 }
             }
 
@@ -132,6 +135,7 @@ public class ServerListener extends Thread {
             switch (message){
                 case UPDATE_BOARD -> receiveUpdatedBoard();
                 case UPDATE_SCORE -> receiveUpdatedScore();
+                case SEND_LINES_TO_ENEMY -> receiveLinesFromEnemy();
             }
         }
     }
@@ -231,9 +235,11 @@ public class ServerListener extends Thread {
     public ArrayList<Tile[][]> getEnemiesBoards() {
         return this.enemiesBoards;
     }
-
-    private void sendPlayerLost() {
-
+    public int getMyIndex() {
+        return 'A' - this.playerMark;
+    }
+    public ConcurrentLinkedQueue<ReceivedLinesData> getReceivedLines() {
+        return this.receivedLines;
     }
 
     private void sendPlayerBoard(Tile[][] boardTile) {
@@ -256,13 +262,24 @@ public class ServerListener extends Thread {
         }
     }
 
-
-
     public void sendScore(PlayerData data) {
         byte[] message = data.toBytes();
         message[0] = MessageType.intoByte(MessageType.UPDATE_SCORE);
         try {
             System.out.println("sending updated score");
+            outStream.write(message);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private void sendLinesToEnemy(int linesToSend) {
+        byte[] message = ByteBuffer.allocate(1+1+1+4).order(ByteOrder.LITTLE_ENDIAN)
+                .put(MessageType.intoByte(MessageType.SEND_LINES_TO_ENEMY))//message type
+                .put((byte)this.playerMark) //  recipient
+                .put((byte)playerMark) // sender
+                .putInt(linesToSend).array();//num of lines
+        try {
             outStream.write(message);
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -314,6 +331,18 @@ public class ServerListener extends Thread {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-
+    }
+    private void receiveLinesFromEnemy() {
+        // message format:
+        //(char)senderMark (int)linesNum;
+        try {
+            ByteBuffer buffer = ByteBuffer.wrap(inStream.readNBytes(1 + 4)).order(ByteOrder.LITTLE_ENDIAN);
+            char senderMark = (char) buffer.get();
+            int linesNum = buffer.getInt();
+            ReceivedLinesData data = new ReceivedLinesData(senderMark,linesNum);
+            this.receivedLines.add(data);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

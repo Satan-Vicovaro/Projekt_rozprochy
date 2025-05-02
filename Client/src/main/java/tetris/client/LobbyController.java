@@ -105,11 +105,13 @@ public class LobbyController {
     }
 
     public void updateLobbyList(List<PlayerData> lobbyList) {
-        this.lobbyPlayerText.getChildren().clear(); // resetting lobby text
-        for(PlayerData player : lobbyList) {
-            Text text = new Text(player.toStringLobby());
-            text.setFont(new Font(18));
-            this.lobbyPlayerText.getChildren().add(text);
+        synchronized (lobbyList) {
+            this.lobbyPlayerText.getChildren().clear(); // resetting lobby text
+            for(PlayerData player : lobbyList) {
+                Text text = new Text(player.toStringLobby());
+                text.setFont(new Font(18));
+                this.lobbyPlayerText.getChildren().add(text);
+            }
         }
         this.lobbyPlayerText.requestLayout();
     }
