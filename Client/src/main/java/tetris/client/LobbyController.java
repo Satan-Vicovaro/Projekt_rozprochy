@@ -159,16 +159,17 @@ public class LobbyController {
 
     public void initGame(Parent root) throws IOException {
         pullForPlayerData();
+        timeline.stop();
+        leaderBoardRefresh.stop();
 
         UiManager manager = new UiManager((AnchorPane) root,
                 stage, fxmlLoader,
                 10,20,
                 listener.getCurrentPlayerNumber(),
-                listener.getEnemiesBoards());
+                listener.getEnemiesBoards(),
+                listener.getOtherLobbyPlayersData());
         TetrisGame game = new TetrisGame(10,20,manager, listener);
 
-        timeline.stop();
-        leaderBoardRefresh.stop();
         game.init();
         game.start();
     }

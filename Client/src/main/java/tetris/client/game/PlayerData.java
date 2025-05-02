@@ -1,19 +1,22 @@
 package tetris.client.game;
 
+import org.jetbrains.annotations.NotNull;
+
 import java.io.DataInputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Vector;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class PlayerData {
+public class PlayerData implements Comparable<PlayerData> {
     //int id;
-    char color;
-    int score;
-    int linesCleared;
-    float gameStage;
-    boolean ready;
+    public char color;
+    public int score;
+    public int linesCleared;
+    public float gameStage;
+    public boolean ready;
     private static final AtomicInteger nextId = new AtomicInteger(0);
 
     public PlayerData(char color, int score, int linesCleared, float gameStage) {
@@ -66,6 +69,16 @@ public class PlayerData {
 
         return result;
     }
+    public byte[] toBytes() {
+        //(char) message type (char)playerMark (int)score (float)gameStage (int)linesCleared
+        byte[] result = ByteBuffer.allocate(1+1+4+4+4).order(ByteOrder.LITTLE_ENDIAN)
+                .put((byte)0)
+                .put((byte) color)
+                .putInt(score)
+                .putFloat(gameStage)
+                .putInt(linesCleared).array();
+        return  result;
+    }
 
     public String toStringLobby() {
         return String.format("Player: %c, ready: %b \n",color,ready);
@@ -73,5 +86,10 @@ public class PlayerData {
     @Override
     public String toString() {
         return String.format("Player: %c, score: %d, linesCleared: %d, gameStage: %.1f \n", color, score, linesCleared, gameStage);
+    }
+
+    @Override
+    public int compareTo(@NotNull PlayerData o) {
+        return 0;
     }
 }

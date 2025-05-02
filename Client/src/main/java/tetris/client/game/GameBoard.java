@@ -9,17 +9,19 @@ import static java.lang.Math.abs;
 
 public class GameBoard {
 
+    char playerMark;
     Tile[][] board;
     int sizeX;
     int sizeY;
 
-    public GameBoard(int sizeX, int sizeY){
+    public GameBoard(int sizeX, int sizeY,char playerMark){
         this.board = new Tile[sizeY][sizeX];
         for (int y = 0; y < sizeY; y++) {
             for (int x = 0; x < sizeX; x++) {
                 board[y][x] = new Tile(new Vector2d(x, y));
             }
         }
+        this.playerMark = playerMark;
         this.sizeX = sizeX;
         this.sizeY = sizeY;
     }
@@ -70,7 +72,7 @@ public class GameBoard {
 
     public void addToBoard(Tetromino shape) {
         for (Vector2d pos: shape) {
-            this.board[(int) pos.y][(int) pos.x].color = 'X';
+            this.board[(int) pos.y][(int) pos.x].color = playerMark;
         }
     }
     public void removeFromBoard(Tetromino shape) {
@@ -156,7 +158,7 @@ public class GameBoard {
                 if(x == spaceAtIndex) {
                     continue;
                 }
-                board[y][x].color = 'X';
+                board[y][x].color = playerMark;
            }
         }
     }

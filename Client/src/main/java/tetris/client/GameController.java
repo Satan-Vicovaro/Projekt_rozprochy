@@ -50,7 +50,7 @@ public class GameController {
 
     @FXML
     public void initialize() {
-        Text t1 = new Text("Controls:\nw");
+        Text t1 = new Text("Controls:\n");
         Text t2 = new Text("Movement: W,A,S,D.\n");
         Text t3 = new Text("Send lines: F.\n");
         Text t4 = new Text("Change attack player: ⬅ ➡.");

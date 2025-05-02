@@ -105,6 +105,8 @@ typedef enum message_type {
     update_score_m = (char) 6,
     send_lines_to_enemy = (char) 7,
     start_game_m = (char) 8,
+    not_a_message_m =(char) 9,
+    message_timeout = (char) 10,
 }message_type;
 
 bool start_game = false;
@@ -133,6 +135,34 @@ void send_to_all_besides_me(exchange_information_handler_t* h, int my_index, thr
     }
 }
 
+void update_score(thread_listener_t* l, char buffer[BUFFER_SIZE], int read_bytes) {
+    // message format:
+    // (char) message type (char)player_mark (int)score (float)game_stage (int)lines_scored
+
+    //getting new score
+    score_t new_score;
+    memcpy(&new_score,buffer + 2*sizeof(char),sizeof(score_t));
+    printf("got score: score %d, state %f, lines %d\n",
+        new_score.current_score,new_score.game_state,new_score.lines_scored);
+    char player_mark = buffer[sizeof(char)];
+    if(player_mark != l->player_data.player_mark) {
+        printf("got wrong player: got %c <-> should be %c \n",player_mark,l->player_data.player_mark);
+    }
+
+    //updating my own score
+    pthread_mutex_lock(&(l->my_lock));
+    l->player_data.score = new_score;
+    pthread_mutex_unlock(&(l->my_lock));
+
+    //creating task for others
+    thread_task_t new_task;
+    new_task.type = send_score_task;
+    new_task.player_mark = l->player_data.player_mark;
+    new_task.that_thread_lock = &(l->my_lock);
+    new_task.data = &(l->player_data.score);
+    send_to_all_besides_me(l->handler,l->my_player_index,new_task);
+}
+
 void update_board(thread_listener_t* l, char buffer[BUFFER_SIZE]) {
     // updating local board
     pthread_mutex_lock(&(l->my_lock));
@@ -149,12 +179,12 @@ void update_board(thread_listener_t* l, char buffer[BUFFER_SIZE]) {
 
     send_to_all_besides_me(l->handler,l->my_player_index,new_task);
 
-    for(int y = 0; y<BOARD_SIZE_Y; y++) {
-        for(int x = 0; x<BOARD_SIZE_X; x++) {
-            printf("%c", l->player_data.board[y][x]);
-        }
-        printf("\n");
-    }
+    // for(int y = 0; y<BOARD_SIZE_Y; y++) {
+    //     for(int x = 0; x<BOARD_SIZE_X; x++) {
+    //         printf("%c", l->player_data.board[y][x]);
+    //     }
+    //     printf("\n");
+    // }
 }
 
 void manage_player_messages(thread_listener_t* l) {
@@ -168,9 +198,12 @@ void manage_player_messages(thread_listener_t* l) {
     {
     case update_board_m:
         update_board(l,buffer);   
-        printf("%c board updated!\n", l->player_data.player_mark);
+        //printf("%c board updated!\n", l->player_data.player_mark);
         break;
-    
+    case update_score_m:
+        update_score(l,buffer,bytes_read);
+        //printf("%c score updated!\n", l->player_data.player_mark);
+        break;
     default:
         printf("got massage but its wrong\n");
         break;
@@ -199,6 +232,28 @@ void send_board(thread_listener_t*l, thread_task_t task) {
     printf("Board sent: %c --> %c \n", l->player_data.player_mark, task.player_mark);
 }
 
+void send_score(thread_listener_t* l, thread_task_t task) {
+    score_t* score =(score_t*) task.data;
+
+    // copying score:
+    score_t score_copy;
+    pthread_mutex_lock(task.that_thread_lock);
+    memcpy(&score_copy, score, sizeof(score_t));
+    pthread_mutex_unlock(task.that_thread_lock);
+    //printf("sending score: score %d, state %f, lines %d\n",
+        score_copy.current_score,score_copy.game_state,score_copy.lines_scored);
+    char buffer[BUFFER_SIZE];
+    //message format:
+    //(char)message_type (char)player_mark (score_t)score_copy
+    int message_length  = 2*sizeof(char) + sizeof(score_t);
+    memcpy(buffer + 2*sizeof(char),&score_copy, sizeof(score_t));
+    buffer[0] = update_score_m;
+    buffer[sizeof(char)] = task.player_mark;
+
+    send(l->client_fd,buffer,message_length,0);
+    printf("Score sent: %c --> %c \n", l->player_data.player_mark, task.player_mark); 
+}
+
 void manage_queue_tasks(thread_listener_t* l) {
     //printf("t\n");
     while(l->my_queue.current_size != 0) {
@@ -214,7 +269,7 @@ void manage_queue_tasks(thread_listener_t* l) {
         switch (task_copy.type)
         {
         case send_score_task:
-            printf("TODO implement send score task \n");        
+            send_score(l,task_copy);
             break;    
         case send_updated_board_task:
             send_board(l,task_copy);

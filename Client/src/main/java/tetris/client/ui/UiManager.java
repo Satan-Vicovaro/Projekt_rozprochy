@@ -46,7 +46,8 @@ public class UiManager {
     ArrayList<PlayerData> playerData;
     TextFlow leaderBoard;
 
-    public UiManager(AnchorPane root, Stage stage, FXMLLoader fxmlLoader, int sizeX, int sizeY, int playerNum, ArrayList<Tile[][]> enemiesBoardsRaw) {
+    public UiManager(AnchorPane root, Stage stage, FXMLLoader fxmlLoader, int sizeX, int sizeY, int playerNum,
+                     ArrayList<Tile[][]> enemiesBoardsRaw, ArrayList<PlayerData> playerData) {
         this.root = root;
         this.stage = stage;
         this.stage.setResizable(false);
@@ -66,7 +67,7 @@ public class UiManager {
         this.playerNum = playerNum;
         this.leaderBoard = controller.getLeaderBoard();
 
-        this.playerData = new ArrayList<>();
+        this.playerData = playerData;
 
         root.setOnKeyPressed(keyEvent -> {
             switch (keyEvent.getCode()) {

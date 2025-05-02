@@ -34,9 +34,6 @@ public class TetrisGame {
     boolean positionChanged = false;
     boolean scoreChanged = false;
 
-    ConcurrentLinkedQueue<ClientTask> queue;
-
-
     final int MAX_SPEED_STATE = 3;
     AnimationTimer gameLoop = new AnimationTimer() {
         // Move piece down, check collision, update score, etc.
@@ -188,7 +185,7 @@ public class TetrisGame {
     public TetrisGame(int sizeX, int sizeY, UiManager manager, ServerListener listener) {
         this.sizeX = sizeX;
         this.sizeY = sizeY;
-        board = new GameBoard(sizeX,sizeY);
+        board = new GameBoard(sizeX,sizeY, listener.getPlayerMark());
         this.manager = manager;
         this.speedState = 1;
         this.fallingSpeed = new Vector2d(0,1F);
@@ -197,7 +194,6 @@ public class TetrisGame {
         this.playerData = new PlayerData(listener.getPlayerMark(), score,totalLinesCleared,speedState);
         this.manager.addPlayerData(playerData);
         this.listener = listener;
-        this.queue = listener.getMessagesFromGameClient();
     }
 
     public void init() {
@@ -211,5 +207,4 @@ public class TetrisGame {
     public void start() {
         gameLoop.start();
     }
-
 }

@@ -2,6 +2,7 @@ package tetris.client.serverRequests;
 
 import tetris.client.game.GameBoard;
 import tetris.client.game.PlayerData;
+import tetris.client.game.PlayerDataComparator.PlayerDataComparator;
 import tetris.client.game.Tile;
 
 import java.io.IOException;
@@ -9,6 +10,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.*;
 import java.util.concurrent.*;
 
@@ -128,6 +131,7 @@ public class ServerListener extends Thread {
             MessageType message = listenForMessage();
             switch (message){
                 case UPDATE_BOARD -> receiveUpdatedBoard();
+                case UPDATE_SCORE -> receiveUpdatedScore();
             }
         }
     }
@@ -144,30 +148,6 @@ public class ServerListener extends Thread {
         }
     }
 
-    private void receiveUpdatedBoard() {
-        // message format:
-        // (char) player_mark char board[20][10]
-        try {
-            int bufferLen = 20*10 + 1;
-            byte[] buffer = inStream.readNBytes(bufferLen);
-
-            char playerMark = (char) buffer[0];
-            System.out.println("Received position: " + playerMark);
-
-            int playerId = playerMark - 'A';
-            Tile[][] board = this.enemiesBoards.get(playerId);
-
-            int x = 0;
-            int y = 0;
-            for(int i = 0 ; i < bufferLen - 1; i++) {
-                y = i/10;
-                x = i%10;
-                board[y][x].color = (char) buffer[i + 1];
-            }
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
 
     private void sendPlayerIsReady() {
         try {
@@ -263,7 +243,7 @@ public class ServerListener extends Thread {
         for (int i = 1; i < byteVector.size()+1; i++) {
             byteArray[i] = byteVector.get(i-1);
         }
-        byteArray[0] = 5; // 5 = update_board_m
+        byteArray[0] = MessageType.intoByte(MessageType.UPDATE_BOARD);
         try {
             System.out.println("Sending updated position");
             outStream.write(byteArray);
@@ -275,15 +255,59 @@ public class ServerListener extends Thread {
 
 
     public void sendScore(PlayerData data) {
-        System.out.println("TODO sendScore");
-        return;
+        byte[] message = data.toBytes();
+        message[0] = MessageType.intoByte(MessageType.UPDATE_SCORE);
+        try {
+            System.out.println("sending updated score");
+            outStream.write(message);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
-    public void getLeaderBoard() {
+    private void receiveUpdatedBoard() {
+        // message format:
+        // (char) player_mark (char) board[20][10]
+        try {
+            int bufferLen = 20*10 + 1;
+            byte[] buffer = inStream.readNBytes(bufferLen);
 
+            char playerMark = (char) buffer[0];
+            System.out.println("Received position: " + playerMark);
+
+            int playerId = playerMark - 'A';
+            Tile[][] board = this.enemiesBoards.get(playerId);
+
+            int x = 0;
+            int y = 0;
+            for(int i = 0 ; i < bufferLen - 1; i++) {
+                y = i/10;
+                x = i%10;
+                board[y][x].color = (char) buffer[i + 1];
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
-    public void getEnemiesLines() {
+    private void receiveUpdatedScore() {
+        //message format:
+        //(char)player_mark (int)currentScore (float)gameStage (int)linesCleared
+        try {
+            int bufferLen = 1+4+4+4;
+            ByteBuffer buffer =ByteBuffer.wrap(inStream.readNBytes(bufferLen)).order(ByteOrder.LITTLE_ENDIAN);
+            char playerMark = (char) buffer.get();
+            int currentScore = buffer.getInt();
+            float gameStage = buffer.getFloat();
+            int linesCleared = buffer.getInt();
+
+            int playerIndex = playerMark - 'A';
+            otherPlayersData.get(playerIndex).updateData(currentScore,linesCleared,gameStage);
+            otherPlayersData.sort(new PlayerDataComparator());
+
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
 
     }
 }
