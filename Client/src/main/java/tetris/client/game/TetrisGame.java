@@ -6,10 +6,10 @@ import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
+import org.apache.commons.math3.analysis.polynomials.PolynomialFunction;
 import tetris.client.ResultViewController;
 import tetris.client.serverRequests.*;
 import tetris.client.ui.UiManager;
-
 import java.io.IOException;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
@@ -65,6 +65,7 @@ public class TetrisGame {
             currentShape = getNewShape(currentShape);
             handlePlayersInput(currentShape);
 
+            // checks if after applying gravity tile moved to next square
             if(currentShape.applyGravity(deltaTime)){
                 positionChanged = true;
             }
@@ -200,20 +201,24 @@ public class TetrisGame {
        }
        totalLinesCleared += clearedLines;
        scoreChanged = true;
+
+       // polynomial for scaling values
+       PolynomialFunction p = new PolynomialFunction(new double[]{0.0666667,-0.4, 0.883333,0.40});
+       double coefficient  =  p.value(speedState);
        switch (clearedLines) {
            case 1:
-               score +=40;
+               score +=(int) 40 * coefficient;
                break;
            case 2:
-               score += 100;
+               score += 100 * coefficient;
                this.linesToSend +=1;
                break;
            case 3:
-               score += 300;
+               score += 300 * coefficient;
                this.linesToSend +=2;
                break;
            case 4:
-               score += 1200;
+               score += 1200 * coefficient;
                this.linesToSend +=3;
                break;
            default:

@@ -86,7 +86,7 @@ public class GameBoard {
         Vector2d[] lowestPoints = shape.getLowestPoints();
 
         for (Vector2d point: lowestPoints) {
-            if (point.y > sizeY - 1 || point.y < 0) {
+            if ((int) point.y > sizeY - 2 || (int) point.y < 0) {
                 return true; //set shape on the bottom of board
             }
             Tile pointBelow = board[(int)(point.y + 1)][(int)point.x];

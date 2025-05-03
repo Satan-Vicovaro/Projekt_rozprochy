@@ -19,6 +19,7 @@ import javafx.event.ActionEvent;
 import javafx.util.Duration;
 import tetris.client.game.PlayerData;
 import tetris.client.game.TetrisGame;
+import tetris.client.game.Tile;
 import tetris.client.serverRequests.ClientTask;
 import tetris.client.serverRequests.MessageType;
 import tetris.client.serverRequests.ServerListener;
@@ -53,8 +54,15 @@ public class LobbyController {
     private Button connectToServerButton;
 
     @FXML
-    private void initialize() {
+    private Button switchToGameButton;
 
+    @FXML
+    private Button playerReadyButton;
+
+    @FXML
+    private void initialize() {
+        switchToGameButton.setDisable(true);
+        playerReadyButton.setDisable(true);
     }
 
     public LobbyController() {
@@ -90,6 +98,10 @@ public class LobbyController {
         if(connectedToServer) {
             List<PlayerData> lobbyList = listener.getOtherLobbyPlayersData();
             updateLobbyList(lobbyList);
+            if(listener.getStartGame()) {
+                this.playerReadyButton.setDisable(true);
+                this.switchToGameButton.setDisable(false);
+            }
         }
     }
 
@@ -110,6 +122,7 @@ public class LobbyController {
             for(PlayerData player : lobbyList) {
                 Text text = new Text(player.toStringLobby());
                 text.setFont(new Font(18));
+                text.setFill(Tile.getColorFromChar(player.color));
                 this.lobbyPlayerText.getChildren().add(text);
             }
         }
@@ -136,6 +149,9 @@ public class LobbyController {
             this.connectToServerButton.setText("Connected");
             this.connectedToServer = true;
             this.listener.sendMessage(new ClientTask(MessageType.GET_OTHER_PLAYERS));
+
+            this.connectToServerButton.setDisable(true);
+            this.playerReadyButton.setDisable(false);
         } catch (Exception e) {
                 this.connectToServerButton.setText("Couldn't connect");
                 this.connectToServerButton.setFont(new Font(12));
@@ -144,7 +160,6 @@ public class LobbyController {
 
     //button function
     public void switchToGame(ActionEvent event) throws IOException {
-
         if (!listener.getStartGame()) {
             return;
         }

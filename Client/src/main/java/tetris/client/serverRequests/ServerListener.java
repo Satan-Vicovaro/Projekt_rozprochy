@@ -24,6 +24,7 @@ public class ServerListener extends Thread {
     private final List<PlayerStatus> playerStatuses;
     private final List<PlayerData> otherPlayersData;
     private ArrayList<Tile[][]> enemiesBoards;
+    private Tile[][] boardToSend;
     private int currentPlayerNumber;
 
 
@@ -132,14 +133,20 @@ public class ServerListener extends Thread {
 
     public void gameLoop() {
         while (true) {
+            // messages form game client
             while(!messagesFromGameClient.isEmpty()) {
                 ClientTask messageType = messagesFromGameClient.remove();
                 switch (messageType.message){
-                    case UPDATE_BOARD -> sendPlayerBoard((Tile[][]) messageType.getData());
                     case UPDATE_SCORE -> sendScore((PlayerData) messageType.getData());
                     case SEND_LINES_TO_ENEMY -> sendLinesToEnemy((LinesMessageData) messageType.getData());
                     case PLAYER_STATUS -> sendPlayerStatus((PlayerStatus) messageType.getData());
                 }
+            }
+            //send potential array, we don't want multiple boards to send in messageQueue, we send only the last one
+            Tile[][] board = getCopyBoardToSend();
+            if(board != null) {
+                sendPlayerBoard(board);
+                setToNullBoardToSend();
             }
 
             //receive messages from server
@@ -229,8 +236,30 @@ public class ServerListener extends Thread {
     public boolean isPlayerReady() {
         return playerReady;
     }
+    public synchronized void setToNullBoardToSend(){
+        this.boardToSend = null;
+    }
+
+    public synchronized Tile[][] getCopyBoardToSend() {
+        if(this.boardToSend == null) {
+            return null;
+        }
+
+       Tile[][] boardToSendCopy = new Tile[20][10];
+        for(int y = 0; y < 20;y++) { // sizeY
+            for(int x = 0; x < 10;x++) { // sizeX
+                boardToSendCopy[y][x] = this.boardToSend[y][x];
+            }
+        }
+        return boardToSendCopy;
+    }
     public synchronized void sendMessage(ClientTask task) {
-        this.messagesFromGameClient.add(task);
+        if(task.message == MessageType.UPDATE_BOARD) {
+            this.boardToSend = (Tile[][]) task.getData();
+        }
+        else {
+            this.messagesFromGameClient.add(task);
+        }
     }
     public synchronized List<PlayerData> getOtherLobbyPlayersData() {
         return this.otherPlayersData;

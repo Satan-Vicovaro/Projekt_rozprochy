@@ -276,7 +276,7 @@ void manage_player_messages(thread_listener_t* l) {
     case player_status_m:
         get_player_status(l,buffer,bytes_read);
     default:
-        printf("got massage but its wrong\n");
+        printf("got massage but its wrong: \n", buffer[0]);
         break;
     }
 }
@@ -479,7 +479,7 @@ int lobby_loop(thread_listener_t* l) {
     while(!start_game) {
         int bytes_read = read(l->client_fd, buffer, BUFFER_SIZE);
         if (bytes_read <= 0) {   
-            printf("lobby_loop read error");    
+            printf("lobby_loop read error\n");    
             return -1;
         }
         switch (buffer[0])
@@ -727,7 +727,7 @@ void init_server(server_t* s) {
     }
 
     // Listen for connections
-    if (listen(s->server_fd, 10000) < 0) {
+    if (listen(s->server_fd, 14) < 0) {
         perror("listen failed");
         close(s->server_fd);
         exit(EXIT_FAILURE);

@@ -10,6 +10,7 @@ import javafx.scene.text.Text;
 import javafx.scene.text.TextFlow;
 import javafx.stage.Stage;
 import tetris.client.game.PlayerData;
+import tetris.client.game.Tile;
 
 import java.io.IOException;
 import java.util.EventObject;
@@ -30,7 +31,6 @@ public class ResultViewController {
     private final List<PlayerData> otherPlayersData;
     public ResultViewController(Stage stage, List<PlayerData> otherPlayersData) {
 
-        System.out.println(getClass().getResource("result-view.fxml"));
         FXMLLoader fxmlLoader = new FXMLLoader(getClass().getResource("result-view.fxml"));
         fxmlLoader.setController(this);
         try {
@@ -51,11 +51,12 @@ public class ResultViewController {
             Text text = new Text(
                     "Place: " + place
                     + " ,Player: " + data.color
-                    + "     ,score: " + data.score
+                    + " ,score: " + data.score
                     + " ,lines cleared: " + data.linesCleared
-                    + " ,final game stage: " + (int) (2*data.gameStage)
+                    + " ,final game stage: " + (int) (2*data.gameStage) + "\n"
                     );
             text.setFont(new Font(16));
+            text.setFill(Tile.getColorFromChar(data.color));
             this.FinalLeaderBoard.getChildren().add(text);
             place++;
         }

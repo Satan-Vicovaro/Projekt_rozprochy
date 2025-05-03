@@ -11,6 +11,30 @@ public class Tile {
     public Tile (char color) {
         this.color = color;
     }
+    public static Color getColorFromChar(char color) {
+        return switch (color) {
+            case 'A' -> Color.RED;
+            case 'B' -> Color.BLUE;
+            case 'C' -> Color.GREEN;
+            case 'D' -> Color.DARKGOLDENROD;
+            case 'E' -> Color.DARKMAGENTA;
+            case 'F' -> Color.FORESTGREEN;
+            case 'G' -> Color.DARKGREY;
+            case 'H' -> Color.YELLOWGREEN;
+            case 'I' -> Color.YELLOW;
+            case 'J' -> Color.LIGHTCORAL;
+            case 'K' -> Color.DARKRED;
+            case 'L' -> Color.CADETBLUE;
+            case 'M' -> Color.DARKGREEN;
+            case 'N' -> Color.DARKGRAY;
+            case 'O' -> Color.DARKSALMON;
+            case 'P' -> Color.FUCHSIA;
+            case 'R' -> Color.GOLDENROD;
+            case ' ' -> Color.WHITE;
+            default -> Color.ORANGE;
+        };
+    }
+
     public Color getColor() {
         switch (color) {
             case 'A':
