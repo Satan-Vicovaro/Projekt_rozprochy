@@ -291,6 +291,9 @@ public class UiManager {
             }
         }
     }
+    public Stage getStage(){
+        return stage;
+    }
 
     public void closeProgram() {
         Platform.exit();

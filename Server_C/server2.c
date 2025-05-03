@@ -24,11 +24,12 @@
 #define MAX_QUEUE_SIZE 64
 
 typedef enum player_status { 
-    not_ready_s,
-    ready_s,
-    joining_lobby_s,
-    playing_s,
-    lost_s,
+    not_ready_s = 0,
+    ready_s = 1,
+    joining_lobby_s = 2,
+    playing_s = 3,
+    lost_s = 4,
+    error_s = 5,
 } player_status;
 
 typedef struct score_t {
@@ -55,7 +56,8 @@ typedef struct exchange_information_handler_t{
 typedef enum task_type {
     send_score_task = 1,
     send_updated_board_task = 2,
-    send_lines_task = 3
+    send_lines_task = 3,
+    send_player_status_task = 4,
 } task_type;
 
 typedef struct thread_task_t {
@@ -106,7 +108,8 @@ typedef enum message_type {
     send_lines_to_enemy_m = (char) 7,
     start_game_m = (char) 8,
     not_a_message_m =(char) 9,
-    message_timeout = (char) 10,
+    message_timeout_m = (char) 10,
+    player_status_m =(char)11
 }message_type;
 
 bool start_game = false;
@@ -115,7 +118,7 @@ bool global_game_over = false;
 void send_to_one(exchange_information_handler_t* h,int receiver_index, thread_task_t new_task) { 
     
     if(receiver_index < 0 || receiver_index > h->current_player_num-1) {
-        printf("%c: Wrong receiver_index\n", new_task.player_mark);
+        printf("%c: Wrong receiver_index: %d\n", new_task.player_mark, receiver_index);
         return;
     }
 
@@ -158,6 +161,26 @@ void send_to_all_besides_me(exchange_information_handler_t* h, int my_index, thr
     }
 }
 
+void get_player_status(thread_listener_t* l,char buffer[BUFFER_SIZE], int read_bytes) {
+
+    // message format:
+    // (char) message type (int) our_player_status
+    int player_status_s = 0;
+    memcpy(&player_status_s, buffer + sizeof(char),sizeof(int));
+
+    player_status status = player_status_s;
+
+    //printf("%c received status: %d\n", l->player_data.player_mark, player_status_s);
+    
+    l->player_data.status = status;
+    thread_task_t new_task; 
+    new_task.type = send_player_status_task;
+    new_task.player_mark = l->player_data.player_mark;
+    new_task.that_thread_lock = &(l->my_lock);
+    new_task.data = (void *) status;
+    send_to_all_besides_me(l->handler,l->my_player_index,new_task);
+}
+
 void message_with_lines_to_enemy(thread_listener_t* l, char buffer[BUFFER_SIZE], int read_bytes) {
     // message format:
     // (char) message type (char)receiver_mark (char)sender_mark (int)lines_num 
@@ -175,7 +198,7 @@ void message_with_lines_to_enemy(thread_listener_t* l, char buffer[BUFFER_SIZE],
     new_task.player_mark = sender_mark;
     new_task.that_thread_lock = &(l->my_lock);
     new_task.data = (void *) lines_num;
-    send_to_one(l->handler, 'A'-receiver_mark,new_task);
+    send_to_one(l->handler,abs('A'-receiver_mark), new_task);
 }
 
 void update_score(thread_listener_t* l, char buffer[BUFFER_SIZE], int read_bytes) {
@@ -250,13 +273,30 @@ void manage_player_messages(thread_listener_t* l) {
     case send_lines_to_enemy_m:
         message_with_lines_to_enemy(l, buffer,bytes_read);
         break;
+    case player_status_m:
+        get_player_status(l,buffer,bytes_read);
     default:
         printf("got massage but its wrong\n");
         break;
     }
 }
 
-void send_lines(thread_listener_t*l, thread_task_t task) {
+void send_player_status(thread_listener_t* l, thread_task_t task) { 
+    // this task don't require reading from memory
+    // message format:
+    // (char)message_type (char)sender_mark (int)player_status;
+    char buffer[BUFFER_SIZE] = {0};
+    buffer[0] = player_status_m;
+    buffer[1] = task.player_mark;
+
+    int player_status = (int) task.data;
+    memcpy(buffer + 2*sizeof(char),&player_status,sizeof(int));
+
+    send(l->client_fd,buffer,2*sizeof(char) + sizeof(int),0);
+    printf("send player status: %c --> %c : %d\n", task.player_mark, l->player_data.player_mark, task.data);
+}
+
+void send_lines(thread_listener_t* l, thread_task_t task) {
     // this task don't require reading from memory
     // message format:
     // (char)message_type (char)sender_mark (int)lines_num;
@@ -338,6 +378,9 @@ void manage_queue_tasks(thread_listener_t* l) {
             break;
         case send_lines_task:
             send_lines(l,task_copy);
+            break;
+        case send_player_status_task:
+            send_player_status(l,task_copy);    
             break;
         default:
             printf("Wrong task sent: %c \n",l->player_data.player_mark);

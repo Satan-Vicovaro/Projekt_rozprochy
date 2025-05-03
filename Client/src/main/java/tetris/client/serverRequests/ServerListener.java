@@ -21,6 +21,7 @@ public class ServerListener extends Thread {
 
     private final ConcurrentLinkedQueue<ClientTask> messagesFromGameClient;
     private final ConcurrentLinkedQueue<LinesMessageData> receivedLines;
+    private final List<PlayerStatus> playerStatuses;
     private final List<PlayerData> otherPlayersData;
     private ArrayList<Tile[][]> enemiesBoards;
     private int currentPlayerNumber;
@@ -41,6 +42,7 @@ public class ServerListener extends Thread {
         this.startGame = false;
         this.messagesFromGameClient = new ConcurrentLinkedQueue<>();
         this.otherPlayersData = Collections.synchronizedList(new ArrayList<>());
+        this.playerStatuses = Collections.synchronizedList(new ArrayList<>());
         this.currentPlayerNumber = 0;
         this.enemiesBoards = new ArrayList<>();
         this.receivedLines = new ConcurrentLinkedQueue<>();
@@ -81,6 +83,9 @@ public class ServerListener extends Thread {
                 case 6 -> MessageType.UPDATE_SCORE;
                 case 7 -> MessageType.SEND_LINES_TO_ENEMY;
                 case 8 -> MessageType.START_GAME;
+                case 9 -> MessageType.NOT_A_MESSAGE;
+                case 10 -> MessageType.MESSAGE_TIMEOUT;
+                case 11 -> MessageType.PLAYER_STATUS;
                 default -> {
                     System.out.println("Received: Unknown message");
                     yield MessageType.NOT_OK;
@@ -117,6 +122,12 @@ public class ServerListener extends Thread {
                 }
             }
         }
+        // setting up all players statuses
+        synchronized (playerStatuses) {
+            for(int i = 0; i < currentPlayerNumber;i++) {
+                playerStatuses.add(PlayerStatus.PLAYING);
+            }
+        }
     }
 
     public void gameLoop() {
@@ -127,6 +138,7 @@ public class ServerListener extends Thread {
                     case UPDATE_BOARD -> sendPlayerBoard((Tile[][]) messageType.getData());
                     case UPDATE_SCORE -> sendScore((PlayerData) messageType.getData());
                     case SEND_LINES_TO_ENEMY -> sendLinesToEnemy((LinesMessageData) messageType.getData());
+                    case PLAYER_STATUS -> sendPlayerStatus((PlayerStatus) messageType.getData());
                 }
             }
 
@@ -136,6 +148,7 @@ public class ServerListener extends Thread {
                 case UPDATE_BOARD -> receiveUpdatedBoard();
                 case UPDATE_SCORE -> receiveUpdatedScore();
                 case SEND_LINES_TO_ENEMY -> receiveLinesFromEnemy();
+                case PLAYER_STATUS -> receivePlayerStatus();
             }
         }
     }
@@ -241,6 +254,26 @@ public class ServerListener extends Thread {
     public ConcurrentLinkedQueue<LinesMessageData> getReceivedLines() {
         return this.receivedLines;
     }
+    public boolean globalEndOfGame() {
+        synchronized (playerStatuses) {
+            for(PlayerStatus status: playerStatuses) {
+                if (status == PlayerStatus.PLAYING)
+                    return false;
+            }
+        }
+        return true;
+    }
+
+    private void sendPlayerStatus(PlayerStatus status) {
+        byte[] message = ByteBuffer.allocate(1+4).order(ByteOrder.LITTLE_ENDIAN)
+                .put(MessageType.intoByte(MessageType.PLAYER_STATUS))
+                .putInt((int)PlayerStatus.intoByte(PlayerStatus.LOST)).array();
+        try {
+            outStream.write(message);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
 
     private void sendPlayerBoard(Tile[][] boardTile) {
 
@@ -332,6 +365,7 @@ public class ServerListener extends Thread {
             throw new RuntimeException(e);
         }
     }
+
     private void receiveLinesFromEnemy() {
         // message format:
         //(char)senderMark (int)linesNum;
@@ -341,6 +375,25 @@ public class ServerListener extends Thread {
             int linesNum = buffer.getInt();
             LinesMessageData data = new LinesMessageData(senderMark,linesNum);
             this.receivedLines.add(data);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private void receivePlayerStatus() {
+        try {
+            ByteBuffer message = ByteBuffer.wrap(inStream.readNBytes(1+4)).order(ByteOrder.LITTLE_ENDIAN);
+            char playerMark =(char) message.get();
+            PlayerStatus status = PlayerStatus.ERROR;
+            switch (message.getInt()){
+                case 4 -> {status = PlayerStatus.LOST;}
+                case 3 -> {status = PlayerStatus.PLAYING;}
+            }
+            int playerIndex = playerMark - 'A';
+            synchronized (playerStatuses) {
+                playerStatuses.set(playerIndex,status);
+            }
+            System.out.println("Updated status of: " + playerMark);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

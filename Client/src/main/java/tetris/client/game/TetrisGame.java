@@ -1,12 +1,16 @@
 package tetris.client.game;
 
 import javafx.animation.AnimationTimer;
-import tetris.client.serverRequests.ClientTask;
-import tetris.client.serverRequests.MessageType;
-import tetris.client.serverRequests.LinesMessageData;
-import tetris.client.serverRequests.ServerListener;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Node;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
+import javafx.stage.Stage;
+import tetris.client.ResultViewController;
+import tetris.client.serverRequests.*;
 import tetris.client.ui.UiManager;
 
+import java.io.IOException;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class TetrisGame {
@@ -46,10 +50,13 @@ public class TetrisGame {
         public void updateGame(double deltaTime) {
             if (gameOver) {
                 //only update the board
+                manager.updateBoard(board.getTiles());
                 manager.updateEnemiesBoards();
                 manager.updateScoreBoard();
                 if(!runOnce) {
+                    System.out.println("Last update");
                     listener.sendMessage(new ClientTask(MessageType.UPDATE_BOARD,board.getTiles()));
+                    listener.sendMessage(new ClientTask(MessageType.PLAYER_STATUS, PlayerStatus.LOST));
                     runOnce = true;
                 }
                 return;
@@ -94,12 +101,17 @@ public class TetrisGame {
                 updateGame(deltaTime);
             }
              lastUpdate = now;
-            if (gameOver) {
-                this.stop();
-                //manager.closeProgram();
+            if(listener.globalEndOfGame()) {
+                gameLoop.stop();
+                switchToResultView();
             }
         }
     };
+
+    public void switchToResultView() {
+        ResultViewController resultView = new ResultViewController(manager.getStage(),listener.getOtherLobbyPlayersData());
+        resultView.show();
+    }
 
     public void handleSendingData() {
         if(positionChanged) {
@@ -198,12 +210,10 @@ public class TetrisGame {
                break;
            case 3:
                score += 300;
-
                this.linesToSend +=2;
                break;
            case 4:
                score += 1200;
-
                this.linesToSend +=3;
                break;
            default:

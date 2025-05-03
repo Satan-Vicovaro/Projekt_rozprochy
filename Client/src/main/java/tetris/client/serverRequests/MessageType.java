@@ -11,7 +11,8 @@ public enum MessageType {
     SEND_LINES_TO_ENEMY,
     START_GAME,
     NOT_A_MESSAGE,
-    MESSAGE_TIMEOUT;
+    MESSAGE_TIMEOUT,
+    PLAYER_STATUS;
 
     public static char intoChar(MessageType type) {
         switch (type){
@@ -26,6 +27,7 @@ public enum MessageType {
             case START_GAME -> {return  (char)8;}
             case NOT_A_MESSAGE -> {return  (char)9;}
             case MESSAGE_TIMEOUT -> {return  (char)10;}
+            case PLAYER_STATUS -> {return (char) 11;}
             case null, default -> {return (char)9;}
         }
     }
@@ -42,6 +44,7 @@ public enum MessageType {
             case START_GAME -> {return  (byte)8;}
             case NOT_A_MESSAGE -> {return  (byte)9;}
             case MESSAGE_TIMEOUT -> {return  (byte)10;}
+            case PLAYER_STATUS -> {return (byte) 11;}
             case null, default -> {return (byte)9;}
         }
     }
