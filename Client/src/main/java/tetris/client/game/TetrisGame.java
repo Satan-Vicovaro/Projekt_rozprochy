@@ -125,7 +125,6 @@ public class TetrisGame {
                     copyBoard[y][x] = new Tile(board[y][x].color);
                 }
             }
-            System.out.println("Tetris: sending board");
             listener.sendMessage(new ClientTask(MessageType.UPDATE_BOARD, copyBoard));
             positionChanged = false;
         }
@@ -253,7 +252,6 @@ public class TetrisGame {
         manager.loadEnemiesGrids();
         manager.updateBoard(board.getTiles());
         manager.initSelectedBoardMark();
-        manager.run();
     }
 
     public void start() {

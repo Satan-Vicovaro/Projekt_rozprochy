@@ -53,7 +53,7 @@ public class GameController {
         Text t1 = new Text("Controls:\n");
         Text t2 = new Text("Movement: W,A,S,D.\n");
         Text t3 = new Text("Send lines: F.\n");
-        Text t4 = new Text("Change attack player: j, k.");
+        Text t4 = new Text("Change target: j, k.");
         t1.setFont(new Font(16));
         t2.setFont(new Font(16));
         t3.setFont(new Font(16));

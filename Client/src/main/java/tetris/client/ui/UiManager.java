@@ -76,39 +76,30 @@ public class UiManager {
             switch (keyEvent.getCode()) {
                 case W -> {
                     symbol.set('W');
-                    System.out.println("Pressed W");
                 }
                 case A -> {
                     symbol.set('A');
-                    System.out.println("Pressed A");
                 }
                 case S -> {
                     symbol.set('S');
-                    System.out.println("Pressed S");
                 }
                 case D -> {
                     symbol.set('D');
-                    System.out.println("Pressed D");
                 }
                 case Q -> {
                     symbol.set('Q');
-                    System.out.println("Pressed Q");
                 }
                 case E -> {
                     symbol.set('E');
-                    System.out.println("Pressed E");
                 }
                 case J -> {
                     symbol.set('J');
-                    System.out.println("Pressed ⬅");
                 }
                 case K -> {
                     symbol.set('K');
-                    System.out.println("Pressed ➡");
                 }
                 case F -> {
                     symbol.set('F');
-                    System.out.println("Pressed F");
                 }
             }
         });
@@ -140,10 +131,6 @@ public class UiManager {
 
         root.widthProperty().addListener(scaleListener);
         root.heightProperty().addListener(scaleListener);
-    }
-
-    public void run() {
-        label.setText("meow meow meow");
     }
 
     public void updateBoard(Tile[][] board) {

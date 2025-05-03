@@ -40,3 +40,5 @@ build/
 .idea
 .idea/*
 ../.idea/
+out/
+src/main/resources/META-INF/

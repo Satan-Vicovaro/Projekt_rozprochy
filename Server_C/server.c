@@ -218,17 +218,16 @@ void reset_input_mode() {
 }
 
 void main_game_loop(server_t* s) {
-    
+    bool all_player_lost = false;
     printf("Main: main game loop \n");
-    while(true) {
-
+    while(!all_player_lost) {
+        sleep(2);
         for(int i = 0; i < s->cur_player_num; i++) {
-            sleep(10);
             if(s->threads[i].player_data.status != lost_s) {
-                continue;
+                break;
             }
+            all_player_lost = true;
         }
-        //break;
     }
     
 }
@@ -247,6 +246,10 @@ int main(){
 
     main_game_loop(&server);
 
+    printf("Game has ended closing server\n");
     close(server.server_fd);
+    for(int i = 0; i<server.cur_player_num;i++) {
+        close(server.thread_handles[i]);
+    }
     reset_input_mode();
 }

@@ -73,7 +73,6 @@ public class ServerListener extends Thread {
     public MessageType listenForMessage() {
         try {
             byte[] inputMessage = inStream.readNBytes(1);
-            System.out.println("Received " + inputMessage[0]);
             return switch (inputMessage[0]) {
                 case 0 -> MessageType.NOT_OK;
                 case 1 -> MessageType.OK;

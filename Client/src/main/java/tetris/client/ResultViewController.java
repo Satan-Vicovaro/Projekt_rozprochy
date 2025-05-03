@@ -50,10 +50,10 @@ public class ResultViewController {
         for(PlayerData data:otherPlayersData) {
             Text text = new Text(
                     "Place: " + place
-                    + " ,Player: " + data.color
-                    + " ,score: " + data.score
-                    + " ,lines cleared: " + data.linesCleared
-                    + " ,final game stage: " + (int) (2*data.gameStage) + "\n"
+                    + ", Player: " + data.color
+                    + ", score: " + data.score
+                    + ", lines cleared: " + data.linesCleared
+                    + ", final game stage: " + (int) (2*data.gameStage) + "\n"
                     );
             text.setFont(new Font(16));
             text.setFill(Tile.getColorFromChar(data.color));
