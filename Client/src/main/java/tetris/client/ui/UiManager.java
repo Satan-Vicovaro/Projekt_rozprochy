@@ -54,6 +54,8 @@ public class UiManager {
         this.root = root;
         this.stage = stage;
         this.stage.setResizable(false);
+        this.stage.setX(0);
+        this.stage.setY(0);
         GameController controller = fxmlLoader.getController();//new GameController();
         this.label = controller.getWelcomeText();
         this.mainBoard = controller.getMainGrid();
